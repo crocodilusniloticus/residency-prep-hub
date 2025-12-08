@@ -1,5 +1,6 @@
 let state, refs;
-const { getLocalISODateString } = require('./utils');
+// IMPORT UTILS
+const { getLocalISODateString, getPersianDateString } = require('./utils');
 
 function init(appState, uiRefs) {
     state = appState;
@@ -32,7 +33,6 @@ function initializeCharts() {
     chartResizeObserver.observe(refs.timeChart);
     chartResizeObserver.observe(refs.scoreChart);
 
-    // Auto-Hide Slider Logic
     const toggleZoom = (isVisible) => {
         state.scoreChart.setOption({ dataZoom: [{ show: isVisible }] });
     };
@@ -101,12 +101,6 @@ function getTrendChartOptions() {
         label: statLabel, value: statValue, text: statusText, color: statusColor, icon: statusIcon
     });
 
-    const globalDailyTotals = {};
-    state.allSessions.forEach(s => {
-        const date = getLocalISODateString(new Date(s.timestamp));
-        globalDailyTotals[date] = (globalDailyTotals[date] || 0) + s.seconds;
-    });
-
     const getPerformanceStyle = (hours) => {
         if (!hours || hours < 0.2) return { bg: '#e0e0e0', text: '#4a413a' }; 
         const ratio = hours / 2; 
@@ -172,7 +166,11 @@ function getTrendChartOptions() {
             backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e0e0e0',
             textStyle: { color: '#4a413a', fontWeight: '600' },
             formatter: function (params) {
-                let tooltipHtml = `<div style="margin-bottom:4px; border-bottom:1px solid #e0e0e0; padding-bottom:4px;">${params[0].name}</div>`;
+                // --- PERSIAN HEADER IN TOOLTIP ---
+                // params[0].name is the X-Axis label (Gregorian ISO). Convert to Persian.
+                const pDate = getPersianDateString(new Date(params[0].name));
+                let tooltipHtml = `<div style="margin-bottom:4px; border-bottom:1px solid #e0e0e0; padding-bottom:4px;">${pDate}</div>`;
+                // ---------------------------------
                 let hasData = false;
                 params.forEach(item => {
                     if (item.seriesName !== 'Total Daily' && parseFloat(item.value) > 0) {
@@ -181,13 +179,25 @@ function getTrendChartOptions() {
                         tooltipHtml += `<div style="display:flex; justify-content:space-between; gap:15px; margin-top:4px;"><span>${colorDot} ${item.seriesName}</span><span style="font-weight:bold">${item.value}h</span></div>`;
                     }
                 });
-                if (!hasData) return `${params[0].name}<br/>No study data`;
+                if (!hasData) return `${pDate}<br/>No study data`;
                 return tooltipHtml;
             }
         },
         legend: { type: 'scroll', bottom: 0, textStyle: { color: '#4a413a' }, data: activeCourses },
         grid: { left: '2%', right: '3%', bottom: '12%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#e0e0e0' } }, axisLabel: { color: '#4a413a' } },
+        xAxis: { 
+            type: 'category', 
+            data: dates, 
+            axisLine: { lineStyle: { color: '#e0e0e0' } }, 
+            axisLabel: { 
+                color: '#4a413a',
+                // --- PERSIAN LABELS ON X-AXIS ---
+                formatter: function(value) {
+                    return getPersianDateString(new Date(value));
+                }
+                // --------------------------------
+            } 
+        },
         yAxis: { type: 'value', splitLine: { lineStyle: { color: '#e0e0e0', type: 'dashed' } }, axisLabel: { color: '#4a413a' } },
         series: series
     };
@@ -219,7 +229,6 @@ function getTimeChartOptions(modeOverride) {
 
     return {
         color: piePalette,
-        
         tooltip: { 
             trigger: 'item', 
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -230,7 +239,6 @@ function getTimeChartOptions(modeOverride) {
                 return `${colorDot} <b>${p.name}</b><br/>${parseFloat(p.value).toFixed(2)}h (${p.percent}%)`;
             }
         },
-
         legend: { 
             type: 'scroll', 
             orient: 'vertical',
@@ -241,16 +249,10 @@ function getTimeChartOptions(modeOverride) {
             pageIconColor: '#8b3a3a',
             pageTextStyle: { color: '#4a413a' }
         },
-        
         series: [{ 
             type: 'pie', 
-            // --- BIGGER & HIGHER ---
-            // Radius: Inner 60%, Outer 90% (Was 55%/85%)
             radius: ['60%', '90%'], 
-            
-            // Center: X=32% (Moved left), Y=45% (Moved Up)
             center: ['42%', '50%'], 
-            
             data: chartData, 
             label: { show: false },
             itemStyle: { borderColor: '#fffaf0', borderWidth: 3 },
@@ -264,11 +266,9 @@ function updateTimeChart() {
     const option = getTimeChartOptions(state.pieChartMode);
     state.timeChart.setOption(option, { notMerge: true });
 
-    // --- HTML OVERLAY UPDATE ---
     const overlay = document.getElementById('pie-overlay');
     const valEl = document.getElementById('pie-val');
 
-    // Safety check in case HTML isn't loaded yet
     if (overlay && valEl) {
         if (state.pieChartMode === 'trend') {
             overlay.classList.add('hidden');
@@ -306,11 +306,35 @@ function getScoreChartOptions() {
             trigger: 'axis',
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             borderColor: '#e0e0e0',
-            textStyle: { color: '#4a413a' }
+            textStyle: { color: '#4a413a' },
+            // --- PERSIAN TOOLTIP FOR SCORE CHART ---
+            formatter: function(params) {
+                // params[0].axisValue is the time. 
+                const date = new Date(params[0].axisValue);
+                const pDate = getPersianDateString(date);
+                let html = `<div style="margin-bottom:4px; border-bottom:1px solid #e0e0e0; padding-bottom:4px;">${pDate}</div>`;
+                params.forEach(item => {
+                    const colorDot = `<span style="display:inline-block;margin-right:5px;border-radius:50%;width:10px;height:10px;background-color:${item.color};"></span>`;
+                    html += `<div style="display:flex; justify-content:space-between; gap:15px; margin-top:4px;"><span>${colorDot} ${item.seriesName}</span><span style="font-weight:bold">${item.value[1]}%</span></div>`;
+                });
+                return html;
+            }
+            // ---------------------------------------
         },
         legend: { type: 'scroll', bottom: '0', textStyle: { color: '#4a413a' } },
         grid: { left: '10%', right: '10%', top: '10%', bottom: '28%' },
-        xAxis: { type: 'time', axisLabel: { color: '#4a413a' }, splitLine: { show: false } },
+        xAxis: { 
+            type: 'time', 
+            axisLabel: { 
+                color: '#4a413a',
+                // --- PERSIAN AXIS LABELS ---
+                formatter: function(value) {
+                    return getPersianDateString(new Date(value));
+                }
+                // ---------------------------
+            }, 
+            splitLine: { show: false } 
+        },
         yAxis: { type: 'value', min: 0, max: 100, axisLabel: { color: '#4a413a' }, splitLine: { lineStyle: { color: '#e0e0e0', type: 'dashed' } } },
         
         dataZoom: [{ 

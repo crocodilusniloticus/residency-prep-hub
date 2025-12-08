@@ -47,6 +47,7 @@ icon.ico
 index.html
 js/charts.js
 js/dataManager.js
+js/fa.js
 js/listeners.js
 js/modals.js
 js/state.js
@@ -63,6 +64,39 @@ styles.css
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="js/fa.js">
+(function (global, factory) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+  typeof define === 'function' && define.amd ? define(['exports'], factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.fa = {}));
+}(this, (function (exports) { 'use strict';
+
+  var fp = typeof window !== "undefined" && window.flatpickr !== undefined
+      ? window.flatpickr
+      : { l10ns: {} };
+
+  var Persian = {
+      weekdays: {
+          shorthand: ["یک", "دو", "سه", "چهار", "پنج", "جمعه", "شنبه"],
+          longhand: ["یک‌شنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنچ‌شنبه", "جمعه", "شنبه"],
+      },
+      // USE REAL GREGORIAN NAMES IN FARSI
+      months: {
+          shorthand: ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"],
+          longhand: ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن", "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"],
+      },
+      firstDayOfWeek: 6, // Starts on Saturday
+      ordinal: function () { return ""; },
+  };
+
+  fp.l10ns.fa = Persian;
+  exports.Persian = Persian;
+  exports.default = fp.l10ns;
+
+  Object.defineProperty(exports, '__esModule', { value: true });
+})));
+</file>
 
 <file path=".gitignore">
 # Node.js dependencies
@@ -121,7 +155,8 @@ module.exports = {
 
 <file path="js/charts.js">
 let state, refs;
-const { getLocalISODateString } = require('./utils');
+// IMPORT UTILS
+const { getLocalISODateString, getPersianDateString } = require('./utils');
 
 function init(appState, uiRefs) {
     state = appState;
@@ -154,7 +189,6 @@ function initializeCharts() {
     chartResizeObserver.observe(refs.timeChart);
     chartResizeObserver.observe(refs.scoreChart);
 
-    // Auto-Hide Slider Logic
     const toggleZoom = (isVisible) => {
         state.scoreChart.setOption({ dataZoom: [{ show: isVisible }] });
     };
@@ -223,12 +257,6 @@ function getTrendChartOptions() {
         label: statLabel, value: statValue, text: statusText, color: statusColor, icon: statusIcon
     });
 
-    const globalDailyTotals = {};
-    state.allSessions.forEach(s => {
-        const date = getLocalISODateString(new Date(s.timestamp));
-        globalDailyTotals[date] = (globalDailyTotals[date] || 0) + s.seconds;
-    });
-
     const getPerformanceStyle = (hours) => {
         if (!hours || hours < 0.2) return { bg: '#e0e0e0', text: '#4a413a' }; 
         const ratio = hours / 2; 
@@ -294,7 +322,11 @@ function getTrendChartOptions() {
             backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e0e0e0',
             textStyle: { color: '#4a413a', fontWeight: '600' },
             formatter: function (params) {
-                let tooltipHtml = `<div style="margin-bottom:4px; border-bottom:1px solid #e0e0e0; padding-bottom:4px;">${params[0].name}</div>`;
+                // --- PERSIAN HEADER IN TOOLTIP ---
+                // params[0].name is the X-Axis label (Gregorian ISO). Convert to Persian.
+                const pDate = getPersianDateString(new Date(params[0].name));
+                let tooltipHtml = `<div style="margin-bottom:4px; border-bottom:1px solid #e0e0e0; padding-bottom:4px;">${pDate}</div>`;
+                // ---------------------------------
                 let hasData = false;
                 params.forEach(item => {
                     if (item.seriesName !== 'Total Daily' && parseFloat(item.value) > 0) {
@@ -303,13 +335,25 @@ function getTrendChartOptions() {
                         tooltipHtml += `<div style="display:flex; justify-content:space-between; gap:15px; margin-top:4px;"><span>${colorDot} ${item.seriesName}</span><span style="font-weight:bold">${item.value}h</span></div>`;
                     }
                 });
-                if (!hasData) return `${params[0].name}<br/>No study data`;
+                if (!hasData) return `${pDate}<br/>No study data`;
                 return tooltipHtml;
             }
         },
         legend: { type: 'scroll', bottom: 0, textStyle: { color: '#4a413a' }, data: activeCourses },
         grid: { left: '2%', right: '3%', bottom: '12%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#e0e0e0' } }, axisLabel: { color: '#4a413a' } },
+        xAxis: { 
+            type: 'category', 
+            data: dates, 
+            axisLine: { lineStyle: { color: '#e0e0e0' } }, 
+            axisLabel: { 
+                color: '#4a413a',
+                // --- PERSIAN LABELS ON X-AXIS ---
+                formatter: function(value) {
+                    return getPersianDateString(new Date(value));
+                }
+                // --------------------------------
+            } 
+        },
         yAxis: { type: 'value', splitLine: { lineStyle: { color: '#e0e0e0', type: 'dashed' } }, axisLabel: { color: '#4a413a' } },
         series: series
     };
@@ -341,7 +385,6 @@ function getTimeChartOptions(modeOverride) {
 
     return {
         color: piePalette,
-        
         tooltip: { 
             trigger: 'item', 
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -352,7 +395,6 @@ function getTimeChartOptions(modeOverride) {
                 return `${colorDot} <b>${p.name}</b><br/>${parseFloat(p.value).toFixed(2)}h (${p.percent}%)`;
             }
         },
-
         legend: { 
             type: 'scroll', 
             orient: 'vertical',
@@ -363,16 +405,10 @@ function getTimeChartOptions(modeOverride) {
             pageIconColor: '#8b3a3a',
             pageTextStyle: { color: '#4a413a' }
         },
-        
         series: [{ 
             type: 'pie', 
-            // --- BIGGER & HIGHER ---
-            // Radius: Inner 60%, Outer 90% (Was 55%/85%)
             radius: ['60%', '90%'], 
-            
-            // Center: X=32% (Moved left), Y=45% (Moved Up)
             center: ['42%', '50%'], 
-            
             data: chartData, 
             label: { show: false },
             itemStyle: { borderColor: '#fffaf0', borderWidth: 3 },
@@ -386,11 +422,9 @@ function updateTimeChart() {
     const option = getTimeChartOptions(state.pieChartMode);
     state.timeChart.setOption(option, { notMerge: true });
 
-    // --- HTML OVERLAY UPDATE ---
     const overlay = document.getElementById('pie-overlay');
     const valEl = document.getElementById('pie-val');
 
-    // Safety check in case HTML isn't loaded yet
     if (overlay && valEl) {
         if (state.pieChartMode === 'trend') {
             overlay.classList.add('hidden');
@@ -428,11 +462,35 @@ function getScoreChartOptions() {
             trigger: 'axis',
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
             borderColor: '#e0e0e0',
-            textStyle: { color: '#4a413a' }
+            textStyle: { color: '#4a413a' },
+            // --- PERSIAN TOOLTIP FOR SCORE CHART ---
+            formatter: function(params) {
+                // params[0].axisValue is the time. 
+                const date = new Date(params[0].axisValue);
+                const pDate = getPersianDateString(date);
+                let html = `<div style="margin-bottom:4px; border-bottom:1px solid #e0e0e0; padding-bottom:4px;">${pDate}</div>`;
+                params.forEach(item => {
+                    const colorDot = `<span style="display:inline-block;margin-right:5px;border-radius:50%;width:10px;height:10px;background-color:${item.color};"></span>`;
+                    html += `<div style="display:flex; justify-content:space-between; gap:15px; margin-top:4px;"><span>${colorDot} ${item.seriesName}</span><span style="font-weight:bold">${item.value[1]}%</span></div>`;
+                });
+                return html;
+            }
+            // ---------------------------------------
         },
         legend: { type: 'scroll', bottom: '0', textStyle: { color: '#4a413a' } },
         grid: { left: '10%', right: '10%', top: '10%', bottom: '28%' },
-        xAxis: { type: 'time', axisLabel: { color: '#4a413a' }, splitLine: { show: false } },
+        xAxis: { 
+            type: 'time', 
+            axisLabel: { 
+                color: '#4a413a',
+                // --- PERSIAN AXIS LABELS ---
+                formatter: function(value) {
+                    return getPersianDateString(new Date(value));
+                }
+                // ---------------------------
+            }, 
+            splitLine: { show: false } 
+        },
         yAxis: { type: 'value', min: 0, max: 100, axisLabel: { color: '#4a413a' }, splitLine: { lineStyle: { color: '#e0e0e0', type: 'dashed' } } },
         
         dataZoom: [{ 
@@ -838,102 +896,6 @@ module.exports = {
 };
 </file>
 
-<file path="js/listeners.js">
-let refs, timers, modals, charts, views, dataManager, state, updateAllDisplays;
-
-function init(appState, uiRefs, timerFuncs, modalFuncs, chartFuncs, viewFuncs, dataMgr, updateAllDisplaysFn) {
-    state = appState;
-    refs = uiRefs;
-    timers = timerFuncs;
-    modals = modalFuncs;
-    charts = chartFuncs;
-    views = viewFuncs;
-    dataManager = dataMgr; 
-    updateAllDisplays = updateAllDisplaysFn;
-
-    const handleCourseChange = (event) => { const newCourse = event.target.value; state.lastSelectedCourse = newCourse; refs.courseSelect.value = newCourse; refs.scoreCourseSelect.value = newCourse; refs.pomodoroCourseSelect.value = newCourse; refs.countdownCourseSelect.value = newCourse; dataManager.saveLastSelectedCourse(); };
-    refs.courseSelect.addEventListener('change', handleCourseChange); refs.scoreCourseSelect.addEventListener('change', handleCourseChange); refs.pomodoroCourseSelect.addEventListener('change', handleCourseChange); refs.countdownCourseSelect.addEventListener('change', handleCourseChange);
-    refs.startButton.addEventListener('click', () => { if (state.isStopwatchRunning || state.isStopwatchPaused) { if (state.isStopwatchPaused) { timers.startTimer(); } else { timers.pauseTimer(); } } else { timers.startTimer(); } });
-    refs.stopButton.addEventListener('click', timers.stopTimer);
-    
-    refs.pomodoroStartBtn.addEventListener('click', () => { 
-        state.pomodoroCycle = 0; 
-        const duration = (state.pomodoroFocusDuration || 50) * 60;
-        timers.beginNewPomodoroPhase(duration, 'studying'); 
-    });
-    
-    refs.pomodoroPauseResumeBtn.addEventListener('click', timers.togglePomodoroPause);
-    refs.pomodoroStopBtn.addEventListener('click', timers.stopPomodoro);
-    
-    if (refs.pomodoroSkipBtn) {
-        refs.pomodoroSkipBtn.addEventListener('click', timers.skipPomodoroPhase);
-    }
-
-    refs.countdownStartPauseBtn.addEventListener('click', () => { if (state.isCountdownRunning || state.isCountdownPaused) { if (state.isCountdownPaused) { timers.startCountdownTimer(state.countdownPausedTime); } else { timers.pauseCountdownTimer(); } } else { const h = parseInt(refs.countdownHours.value) || 0; const m = parseInt(refs.countdownMinutes.value) || 0; const s = parseInt(refs.countdownSeconds.value) || 0; const duration = (h * 3600) + (m * 60) + s; if (duration > 0) { timers.startCountdownTimer(duration); } } });
-    refs.countdownStopBtn.addEventListener('click', timers.stopCountdownTimer);
-    refs.countdownResetBtn.addEventListener('click', timers.resetCountdownTimer);
-    refs.logScoreButton.addEventListener('click', () => { if (dataManager.logScore()) { updateAllDisplays(); } });
-    refs.showAllButton.addEventListener('click', () => { views.updateLogDisplay(); if (state.calendar) { state.calendar.clear(); } });
-    
-    if(refs.btnCalendarToday) { refs.btnCalendarToday.addEventListener('click', () => { views.resetCalendarToToday(); }); }
-
-    refs.saveEventButton.addEventListener('click', modals.saveEvent);
-    refs.cancelEventButton.addEventListener('click', () => { modals.hideEventModal(); views.updateCalendar(); });
-    refs.confirmDeleteButton.addEventListener('click', () => { const identifier = refs.itemToProcess.value; const itemType = refs.itemToProcess.dataset.itemType || 'log'; if (!identifier) return; if (itemType === 'course') { modals.deleteCourse(identifier); } else if (itemType === 'task_permanent') { state.allEvents = state.allEvents.filter(e => e.timestamp !== identifier); dataManager.saveData(); updateAllDisplays(); } else { dataManager.deleteItem(identifier); updateAllDisplays(); } modals.hideConfirmModal(); });
-    refs.cancelDeleteButton.addEventListener('click', modals.hideConfirmModal);
-    refs.saveEditButton.addEventListener('click', modals.saveEdit);
-    refs.cancelEditButton.addEventListener('click', modals.hideEditModal);
-    refs.closeChartModalButton.addEventListener('click', modals.hideChartModal);
-    
-    refs.btnPieTotal.addEventListener('click', () => charts.setPieMode('total'));
-    refs.btnPieToday.addEventListener('click', () => charts.setPieMode('today'));
-    refs.btnPieTrend.addEventListener('click', () => charts.setPieMode('trend'));
-    refs.trendSpanSelect.addEventListener('change', (e) => { state.trendChartSpan = parseInt(e.target.value); charts.updateTimeChart(); });
-    refs.btnToggleTasks.addEventListener('click', () => { state.showCompletedTasks = !state.showCompletedTasks; views.updateTaskDashboard(); });
-    
-    refs.btnTimerStopwatch.addEventListener('click', () => timers.setTimerMode('stopwatch'));
-    refs.btnTimerPomodoro.addEventListener('click', () => timers.setTimerMode('pomodoro'));
-    refs.btnTimerCountdown.addEventListener('click', () => timers.setTimerMode('countdown'));
-    refs.btnFocusMode.addEventListener('click', () => { state.isFocusMode = !state.isFocusMode; views.toggleFocusModeVisuals(); });
-    refs.btnLogChrono.addEventListener('click', () => views.setLogViewMode('chrono'));
-    refs.btnLogTopic.addEventListener('click', () => views.setLogViewMode('topic'));
-    refs.globalSettingsBtn.addEventListener('click', modals.showSettingsModal);
-    refs.manageCoursesFromSettingsBtn.addEventListener('click', modals.showCoursesModal);
-    refs.closeCoursesModalBtn.addEventListener('click', modals.hideCoursesModal);
-    refs.addCourseBtn.addEventListener('click', modals.addCourse);
-    refs.courseListEditor.addEventListener('click', (event) => { const btn = event.target.closest('.course-delete-btn'); if (btn) { const courseName = btn.dataset.course; modals.showConfirmModal(courseName, false, 'course'); } });
-    refs.closeSettingsModalBtn.addEventListener('click', modals.hideSettingsModal);
-    refs.saveSettingsBtn.addEventListener('click', modals.saveSettings);
-    refs.testAlarmBtn.addEventListener('click', modals.testAlarm);
-    refs.selectAlarmBtn.addEventListener('click', modals.selectAlarmFile);
-    refs.exportDataBtn.addEventListener('click', dataManager.exportData);
-    refs.importDataBtn.addEventListener('click', () => refs.importFileInput.click());
-    refs.importFileInput.addEventListener('change', (event) => { if (event.target.files.length > 0) { dataManager.importData(event.target.files[0]); } });
-    refs.sessionLog.addEventListener('click', (event) => { const deleteBtn = event.target.closest('.delete-btn'); const editBtn = event.target.closest('.edit-btn'); if (deleteBtn) { const ts = deleteBtn.dataset.timestamp; modals.showConfirmModal(ts, false, 'log'); } else if (editBtn) { const ts = editBtn.dataset.timestamp; modals.showEditModal(ts); } });
-    refs.taskList.addEventListener('click', (event) => { const doneBtn = event.target.closest('.task-done-btn'); const deleteBtn = event.target.closest('.task-delete-btn'); const editBtn = event.target.closest('.task-edit-btn'); if (doneBtn) { const ts = doneBtn.dataset.timestamp; const eventIndex = state.allEvents.findIndex(e => e.timestamp === ts); if (eventIndex > -1) { state.allEvents[eventIndex].isDone = true; dataManager.saveData(); updateAllDisplays(); } } else if (deleteBtn) { const ts = deleteBtn.dataset.timestamp; modals.showConfirmModal(ts, false, 'task_permanent'); } else if (editBtn) { const ts = editBtn.dataset.timestamp; modals.showEventModal(null, ts); } });
-    
-    // --- FIXED CHART LISTENER ---
-    // Use the ECharts event, NOT the DOM event. Checks if clicked on a pie slice (series)
-    if (state.timeChart) {
-        state.timeChart.on('click', (params) => {
-            if (params.componentType === 'series') {
-                modals.showChartModal('time');
-            }
-        });
-    }
-
-    // Performance chart can trigger on axis too
-    if (state.scoreChart) {
-        state.scoreChart.on('click', () => modals.showChartModal('score'));
-    }
-
-    refs.pomodoroPromptConfirmBtn.addEventListener('click', () => { if (state.nextPomodoroPhase) { timers.beginNewPomodoroPhase(state.nextPomodoroPhase.duration, state.nextPomodoroPhase.name); modals.hidePomodoroPrompt(); modals.playAlarm(true); } });
-    refs.pomodoroPromptStopBtn.addEventListener('click', () => { timers.stopPomodoro(); modals.hidePomodoroPrompt(); modals.playAlarm(true); });
-}
-
-module.exports = { init };
-</file>
-
 <file path="js/modals.js">
 const { exec } = require('child_process'); 
 const { getLocalISODateString } = require('./utils');
@@ -1319,6 +1281,340 @@ module.exports = {
 };
 </file>
 
+<file path="js/utils.js">
+function getLocalISODateString(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// --- NEW: Persian Date Converter (Jalaali Algorithm) ---
+function toJalaali(gy, gm, gd) {
+    var g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    var gy2 = (gm > 2) ? (gy + 1) : gy;
+    var days = 355666 + (365 * gy) + ~~((gy2 + 3) / 4) - ~~((gy2 + 99) / 100) + ~~((gy2 + 399) / 400) + gd + g_d_m[gm - 1];
+    var jy = -1595 + (33 * ~~(days / 12053));
+    days %= 12053;
+    jy += 4 * ~~(days / 1461);
+    days %= 1461;
+    if (days > 365) { jy += ~~((days - 1) / 365); days = (days - 1) % 365; }
+    var jm = (days < 186) ? 1 + ~~(days / 31) : 7 + ~~((days - 186) / 30);
+    var jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+    return { jy: jy, jm: jm, jd: jd };
+}
+
+function getPersianDateString(dateObj) {
+    if (!dateObj || isNaN(dateObj.getTime())) return "";
+    const j = toJalaali(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+    const months = ["Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar", "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand"];
+    return `${months[j.jm - 1]} ${j.jd}`; // e.g., "Dey 16"
+}
+
+function getFullPersianDate(dateObj) {
+    if (!dateObj || isNaN(dateObj.getTime())) return "";
+    const j = toJalaali(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+    return `${j.jy}/${j.jm.toString().padStart(2, '0')}/${j.jd.toString().padStart(2, '0')}`; // e.g., "1403/10/16"
+}
+
+module.exports = {
+    getLocalISODateString,
+    getPersianDateString,
+    getFullPersianDate,
+    toJalaali  // <--- ADD THIS LINE
+};
+</file>
+
+<file path="js/views.js">
+let state, refs, showEventModal, logSession;
+// IMPORT NEW UTILS
+// Add toJalaali to the list inside the curly braces
+const { getLocalISODateString, getPersianDateString, getFullPersianDate, toJalaali } = require('./utils');
+function initializeCalendar() { 
+    state.calendar = flatpickr(refs.studyCalendar, { 
+        inline: true, 
+        locale: 'fa', 
+        altInput: true, 
+        altFormat: "Y/m/d",
+        dateFormat: "Y-m-d",
+        
+        onChange: (selectedDates) => { 
+            if (!state.isSavingEvent && selectedDates.length) {
+                updateLogDisplay(getLocalISODateString(selectedDates[0])); 
+            }
+        }, 
+
+        // *** THE REAL BUILD: VISUAL INJECTION ***
+        onDayCreate: (dObj, dStr, fp, dayElem) => { 
+            // 1. Convert the cell's date to Jalaali
+            const dateObj = dayElem.dateObj;
+            const j = toJalaali(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+            
+            // 2. Add the Persian number into the HTML
+            dayElem.innerHTML += `<span class="jalaali-date">${j.jd}</span>`;
+
+            // 3. Existing Event Logic
+            const date = getLocalISODateString(dateObj); 
+            const studyDays = new Set(state.allSessions.map(s => getLocalISODateString(new Date(s.timestamp)))); 
+            if (studyDays.has(date)) { dayElem.classList.add("study-day"); } 
+            
+            const eventsOnThisDay = state.allEvents.filter(e => e.date === date && !e.isDone); 
+            if (eventsOnThisDay.length > 0) { 
+                dayElem.classList.add("event-day"); 
+                // Add an event dot indicator
+                dayElem.innerHTML += `<span class="event-dot"></span>`;
+                // Use Tippy for tooltip instead of native title
+                dayElem.setAttribute('data-tooltip', eventsOnThisDay.map(e => e.title).join('\n'));
+            } 
+            
+            dayElem.addEventListener('contextmenu', (e) => { e.preventDefault(); showEventModal(dayElem.dateObj); }); 
+        } 
+    }); 
+}
+const { delegate } = require('tippy.js');
+
+function initializeGlobalTooltips() { delegate('body', { target: '[data-tooltip]', content(reference) { return reference.dataset.tooltip; }, allowHTML: false, placement: 'top', animation: 'fade', delay: 15, duration: 0 }); }
+function init(appState, uiRefs, eventModalFn, logSessionFn) { state = appState; refs = uiRefs; showEventModal = eventModalFn; logSession = logSessionFn; }
+function updateStreakDisplay() { refs.streakCount.textContent = state.streakCount; if (state.streakCount > 0) { refs.streakContainer.classList.add('active-streak'); } else { refs.streakContainer.classList.remove('active-streak'); } if (state.streakCount >= state.streakTarget) { refs.streakContainer.classList.add('target-hit'); } else { refs.streakContainer.classList.remove('target-hit'); } }
+function toggleFocusModeVisuals() { if (state.isFocusMode) { document.body.classList.add('focus-mode'); refs.btnFocusMode.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Exit Zen Mode`; refs.btnFocusMode.dataset.tooltip = "Exit Zen Mode"; } else { document.body.classList.remove('focus-mode'); refs.btnFocusMode.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>`; refs.btnFocusMode.dataset.tooltip = "Enter Focus Mode"; } }
+const icons = { edit: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>`, delete: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`, check: `✔` };
+
+function updateLogDisplay(filterDate = null) { 
+    refs.sessionLog.innerHTML = ''; 
+    let combinedLog = [...state.allSessions, ...state.allScores]; 
+    if (filterDate) { 
+        refs.showAllButton.hidden = false; 
+        combinedLog = combinedLog.filter(item => getLocalISODateString(new Date(item.timestamp)) === filterDate); 
+    } else { 
+        refs.showAllButton.hidden = true; 
+    } 
+    
+    if (state.logViewMode === 'chrono') { 
+        refs.btnLogChrono.classList.add('active'); 
+        refs.btnLogTopic.classList.remove('active'); 
+        combinedLog.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).forEach(item => { 
+            const el=document.createElement('div'); 
+            const d=new Date(item.timestamp); 
+            
+            // --- PERSIAN DATE FORMAT ---
+            const pDate = getPersianDateString(d);
+            const tTime = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            const fd = `${pDate}, ${tTime}`;
+            // ---------------------------
+
+            const buttons = `<div class="log-meta"><span class="log-date">${fd}</span><div class="log-actions"><button class="action-icon-btn edit edit-btn" data-timestamp="${item.timestamp}" data-tooltip="Edit">${icons.edit}</button><button class="action-icon-btn delete delete-btn" data-timestamp="${item.timestamp}" data-tooltip="Delete">${icons.delete}</button></div></div>`; 
+            if(item.type==='session'){ el.className='log-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="log-duration">${item.duration}</div><div class="log-notes">${item.notes}</div>`; } else { el.className='score-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="score-value">${item.score}%</div><div class="log-notes">${item.notes}</div>`; } refs.sessionLog.appendChild(el); 
+        }); 
+    } else { 
+        refs.btnLogChrono.classList.remove('active'); 
+        refs.btnLogTopic.classList.add('active'); 
+        const grouped = {}; 
+        combinedLog.filter(item => item.notes && item.notes.trim() !== '').forEach(item => { if (!grouped[item.course]) grouped[item.course] = []; grouped[item.course].push(item); }); Object.keys(grouped).sort().forEach(course => { const courseHeader = document.createElement('h3'); courseHeader.className = 'log-course-header'; courseHeader.textContent = course; refs.sessionLog.appendChild(courseHeader); grouped[course].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach((item, index) => { const el=document.createElement('div'); const cleanNote = item.notes.replace(/\(stopped early\)/g, '').trim(); if (item.type === 'session') { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> ${cleanNote}`; } else { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> <strong>${item.score}%</strong> ${cleanNote}`; } refs.sessionLog.appendChild(el); }); }); 
+    } 
+}
+
+function updateTaskDashboard() {
+    refs.taskList.innerHTML = ''; 
+    const now = new Date(); now.setHours(0,0,0,0);
+    
+    let filteredEvents;
+    if (state.showCompletedTasks) { refs.btnToggleTasks.textContent = "Show Pending"; filteredEvents = state.allEvents.filter(e => e.isDone); } 
+    else { refs.btnToggleTasks.textContent = "Show Completed"; filteredEvents = state.allEvents.filter(e => !e.isDone); }
+    
+    filteredEvents.sort((a,b) => {
+        const dateA = new Date(a.date); const dateB = new Date(b.date);
+        if (state.showCompletedTasks) return dateB - dateA; return dateA - dateB;
+    });
+    
+    if (filteredEvents.length === 0) { refs.taskList.innerHTML = `<div style="text-align:center; color:#999; margin-top:20px; font-size:0.85rem;">No tasks.</div>`; return; }
+
+    filteredEvents.forEach(event => {
+        const eventDate = new Date(event.date);
+        eventDate.setMinutes(eventDate.getMinutes() + eventDate.getTimezoneOffset());
+        const daysLeft = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        let countdownText = ''; let itemClass = 'task-item';
+        
+        if (state.showCompletedTasks) {
+            itemClass += ' completed'; countdownText = "Done";
+        } else {
+            if(daysLeft < 0) { itemClass += ' overdue'; countdownText = `${-daysLeft}d passed`; } 
+            else if (daysLeft === 0) { itemClass += ' warning-urgent'; countdownText = 'Today'; } 
+            else if (daysLeft <= 3) { itemClass += ' warning-urgent'; countdownText = `${daysLeft}d left`; } 
+            else { countdownText = `${daysLeft}d left`; }
+        }
+        
+        // --- PERSIAN DATE ---
+        const formattedDate = getPersianDateString(eventDate);
+        // --------------------
+        
+        let barFill = 0;
+        if (state.showCompletedTasks) {
+            barFill = 100;
+        } else {
+            const maxDays = state.deadlineUrgencyDays || 60;
+            if (daysLeft <= 0) { barFill = 100; }
+            else { barFill = Math.max(0, 100 - ((daysLeft / maxDays) * 100)); }
+        }
+
+        const item = document.createElement('div'); item.className = itemClass;
+        
+        let controlsHtml = '';
+        if (state.showCompletedTasks) {
+            controlsHtml = `
+                <button class="action-icon-btn edit task-edit-btn" data-timestamp="${event.timestamp}" data-tooltip="Edit">${icons.edit}</button>
+                <button class="action-icon-btn delete task-delete-btn" data-timestamp="${event.timestamp}" data-tooltip="Delete Permanently">${icons.delete}</button>
+            `;
+        } else {
+            controlsHtml = `
+                <span class="task-date" style="margin-right:8px; font-weight:600; color:${daysLeft < 3 ? 'var(--danger)' : 'var(--text-muted)'}">${countdownText}</span>
+                <button class="action-icon-btn edit task-edit-btn" data-timestamp="${event.timestamp}" data-tooltip="Edit" style="margin-right:4px;">${icons.edit}</button>
+                <button class="task-done-btn" data-timestamp="${event.timestamp}" data-tooltip="Mark Done">✔</button>
+            `;
+        }
+
+        item.innerHTML = `<div class="task-header">
+                            <div>
+                                <span class="task-title">${event.title}</span>
+                                <span class="task-date" style="display:block; margin-top:2px;">${formattedDate}</span>
+                            </div>
+                            <div class="task-controls" style="display:flex; align-items:center;">${controlsHtml}</div>
+                          </div>
+                          <div class="task-bar-bg"><div class="task-bar-fg" style="width: ${barFill}%;"></div></div>`;
+        refs.taskList.appendChild(item);
+    });
+}
+
+
+
+function updateCalendar() { 
+    // Only try to redraw if the calendar exists AND has the function
+    if (state.calendar && typeof state.calendar.redraw === 'function') { 
+        state.calendar.redraw(); 
+    } 
+}
+function resetCalendarToToday() { const today = new Date(); if (state.calendar) { state.calendar.setDate(today, true); state.calendar.jumpToDate(today); } updateLogDisplay(getLocalISODateString(today)); }
+
+// Initialize Event Modal Picker (Also Persian)
+function initializeEventModalPicker() { 
+    state.eventModalPicker = flatpickr(refs.eventDatePicker, { 
+        dateFormat: "Y-m-d", 
+        altInput: true,
+        altFormat: "Y/m/d", 
+        locale: 'fa'
+    }); 
+}
+
+
+function populateCourses() { refs.courseSelect.innerHTML = ''; refs.scoreCourseSelect.innerHTML = ''; refs.editCourseSelect.innerHTML = ''; refs.pomodoroCourseSelect.innerHTML = ''; refs.countdownCourseSelect.innerHTML = ''; state.allCourses.forEach(c => { const o1=document.createElement('option');o1.value=c;o1.textContent=c;refs.courseSelect.appendChild(o1); const o2=document.createElement('option');o2.value=c;o2.textContent=c;refs.scoreCourseSelect.appendChild(o2); const o3=document.createElement('option');o3.value=c;o3.textContent=c;refs.editCourseSelect.appendChild(o3); const o4=document.createElement('option');o4.value=c;o4.textContent=c;refs.pomodoroCourseSelect.appendChild(o4); const o5=document.createElement('option');o5.value=c;o5.textContent=c;refs.countdownCourseSelect.appendChild(o5); }); if (state.lastSelectedCourse && state.allCourses.includes(state.lastSelectedCourse)) { refs.courseSelect.value = state.lastSelectedCourse; refs.scoreCourseSelect.value = state.lastSelectedCourse; refs.editCourseSelect.value = state.lastSelectedCourse; refs.pomodoroCourseSelect.value = state.lastSelectedCourse; refs.countdownCourseSelect.value = state.lastSelectedCourse; } }
+function updateCourseEditorList() { refs.courseListEditor.innerHTML = ''; state.allCourses.forEach(course => { const item = document.createElement('div'); item.className = 'course-list-item'; item.style.cssText = "display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; align-items:center;"; item.innerHTML = `<span>${course}</span><button class="action-icon-btn delete course-delete-btn" data-course="${course}">${icons.delete}</button>`; refs.courseListEditor.appendChild(item); }); }
+function setLogViewMode(mode) { state.logViewMode = mode; updateLogDisplay(); }
+
+module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisplay, toggleFocusModeVisuals, initializeCalendar, updateCalendar, resetCalendarToToday, initializeEventModalPicker, populateCourses, updateCourseEditorList, setLogViewMode, initializeGlobalTooltips };
+</file>
+
+<file path="js/listeners.js">
+let refs, timers, modals, charts, views, dataManager, state, updateAllDisplays;
+
+function init(appState, uiRefs, timerFuncs, modalFuncs, chartFuncs, viewFuncs, dataMgr, updateAllDisplaysFn) {
+    state = appState;
+    refs = uiRefs;
+    timers = timerFuncs;
+    modals = modalFuncs;
+    charts = chartFuncs;
+    views = viewFuncs;
+    dataManager = dataMgr; 
+    updateAllDisplays = updateAllDisplaysFn;
+
+    const handleCourseChange = (event) => { const newCourse = event.target.value; state.lastSelectedCourse = newCourse; refs.courseSelect.value = newCourse; refs.scoreCourseSelect.value = newCourse; refs.pomodoroCourseSelect.value = newCourse; refs.countdownCourseSelect.value = newCourse; dataManager.saveLastSelectedCourse(); };
+    refs.courseSelect.addEventListener('change', handleCourseChange); refs.scoreCourseSelect.addEventListener('change', handleCourseChange); refs.pomodoroCourseSelect.addEventListener('change', handleCourseChange); refs.countdownCourseSelect.addEventListener('change', handleCourseChange);
+    
+    // STOPWATCH
+    refs.startButton.addEventListener('click', () => { timers.startTimer(); });
+    refs.stopButton.addEventListener('click', timers.stopTimer);
+    if(refs.resetButton) refs.resetButton.addEventListener('click', timers.resetStopwatch);
+
+    // POMODORO
+    refs.pomodoroStartBtn.addEventListener('click', () => { 
+        state.pomodoroCycle = 0; 
+        const duration = (state.pomodoroFocusDuration || 50) * 60;
+        timers.beginNewPomodoroPhase(duration, 'studying'); 
+    });
+    refs.pomodoroPauseResumeBtn.addEventListener('click', timers.togglePomodoroPause);
+    refs.pomodoroStopBtn.addEventListener('click', timers.stopPomodoro);
+    if (refs.pomodoroSkipBtn) refs.pomodoroSkipBtn.addEventListener('click', timers.skipPomodoroPhase);
+    if (refs.pomodoroResetBtn) refs.pomodoroResetBtn.addEventListener('click', timers.resetPomodoro);
+
+    // COUNTDOWN
+    refs.countdownStartPauseBtn.addEventListener('click', () => { timers.startCountdownTimer(); });
+    refs.countdownStopBtn.addEventListener('click', timers.stopCountdownTimer);
+    refs.countdownResetBtn.addEventListener('click', timers.resetCountdownTimer);
+    
+    // LOG & GENERAL
+    refs.logScoreButton.addEventListener('click', () => { if (dataManager.logScore()) { updateAllDisplays(); } });
+    refs.showAllButton.addEventListener('click', () => { views.updateLogDisplay(); if (state.calendar) { state.calendar.clear(); } });
+    if(refs.btnCalendarToday) { refs.btnCalendarToday.addEventListener('click', () => { views.resetCalendarToToday(); }); }
+
+    // MODALS & ACTIONS
+    refs.saveEventButton.addEventListener('click', modals.saveEvent);
+    refs.cancelEventButton.addEventListener('click', () => { modals.hideEventModal(); views.updateCalendar(); });
+    refs.confirmDeleteButton.addEventListener('click', () => { const identifier = refs.itemToProcess.value; const itemType = refs.itemToProcess.dataset.itemType || 'log'; if (!identifier) return; if (itemType === 'course') { modals.deleteCourse(identifier); } else if (itemType === 'task_permanent') { state.allEvents = state.allEvents.filter(e => e.timestamp !== identifier); dataManager.saveData(); updateAllDisplays(); } else { dataManager.deleteItem(identifier); updateAllDisplays(); } modals.hideConfirmModal(); });
+    refs.cancelDeleteButton.addEventListener('click', modals.hideConfirmModal);
+    refs.saveEditButton.addEventListener('click', modals.saveEdit);
+    refs.cancelEditButton.addEventListener('click', modals.hideEditModal);
+    refs.closeChartModalButton.addEventListener('click', modals.hideChartModal);
+    
+    // CHARTS
+    refs.btnPieTotal.addEventListener('click', () => charts.setPieMode('total'));
+    refs.btnPieToday.addEventListener('click', () => charts.setPieMode('today'));
+    refs.btnPieTrend.addEventListener('click', () => charts.setPieMode('trend'));
+    refs.trendSpanSelect.addEventListener('change', (e) => { state.trendChartSpan = parseInt(e.target.value); charts.updateTimeChart(); });
+    refs.btnToggleTasks.addEventListener('click', () => { state.showCompletedTasks = !state.showCompletedTasks; views.updateTaskDashboard(); });
+    
+    // TIMER TABS & MODES
+    refs.btnTimerStopwatch.addEventListener('click', () => timers.setTimerMode('stopwatch'));
+    refs.btnTimerPomodoro.addEventListener('click', () => timers.setTimerMode('pomodoro'));
+    refs.btnTimerCountdown.addEventListener('click', () => timers.setTimerMode('countdown'));
+    refs.btnFocusMode.addEventListener('click', () => { state.isFocusMode = !state.isFocusMode; views.toggleFocusModeVisuals(); });
+    refs.btnLogChrono.addEventListener('click', () => views.setLogViewMode('chrono'));
+    refs.btnLogTopic.addEventListener('click', () => views.setLogViewMode('topic'));
+    
+    // SETTINGS & DATA
+    refs.globalSettingsBtn.addEventListener('click', modals.showSettingsModal);
+    refs.manageCoursesFromSettingsBtn.addEventListener('click', modals.showCoursesModal);
+    refs.closeCoursesModalBtn.addEventListener('click', modals.hideCoursesModal);
+    refs.addCourseBtn.addEventListener('click', modals.addCourse);
+    refs.courseListEditor.addEventListener('click', (event) => { const btn = event.target.closest('.course-delete-btn'); if (btn) { const courseName = btn.dataset.course; modals.showConfirmModal(courseName, false, 'course'); } });
+    refs.closeSettingsModalBtn.addEventListener('click', modals.hideSettingsModal);
+    refs.saveSettingsBtn.addEventListener('click', modals.saveSettings);
+    refs.testAlarmBtn.addEventListener('click', modals.testAlarm);
+    refs.selectAlarmBtn.addEventListener('click', modals.selectAlarmFile);
+    refs.exportDataBtn.addEventListener('click', dataManager.exportData);
+    refs.importDataBtn.addEventListener('click', () => refs.importFileInput.click());
+    refs.importFileInput.addEventListener('change', (event) => { if (event.target.files.length > 0) { dataManager.importData(event.target.files[0]); } });
+    
+    // LISTS
+    refs.sessionLog.addEventListener('click', (event) => { const deleteBtn = event.target.closest('.delete-btn'); const editBtn = event.target.closest('.edit-btn'); if (deleteBtn) { const ts = deleteBtn.dataset.timestamp; modals.showConfirmModal(ts, false, 'log'); } else if (editBtn) { const ts = editBtn.dataset.timestamp; modals.showEditModal(ts); } });
+    refs.taskList.addEventListener('click', (event) => { const doneBtn = event.target.closest('.task-done-btn'); const deleteBtn = event.target.closest('.task-delete-btn'); const editBtn = event.target.closest('.task-edit-btn'); if (doneBtn) { const ts = doneBtn.dataset.timestamp; const eventIndex = state.allEvents.findIndex(e => e.timestamp === ts); if (eventIndex > -1) { state.allEvents[eventIndex].isDone = true; dataManager.saveData(); updateAllDisplays(); } } else if (deleteBtn) { const ts = deleteBtn.dataset.timestamp; modals.showConfirmModal(ts, false, 'task_permanent'); } else if (editBtn) { const ts = editBtn.dataset.timestamp; modals.showEventModal(null, ts); } });
+    
+    if (state.timeChart) {
+        state.timeChart.on('click', (params) => {
+            if (params.componentType === 'series') {
+                modals.showChartModal('time');
+            }
+        });
+    }
+    if (state.scoreChart) {
+        state.scoreChart.on('click', () => modals.showChartModal('score'));
+    }
+
+    refs.pomodoroPromptConfirmBtn.addEventListener('click', () => { if (state.nextPomodoroPhase) { timers.beginNewPomodoroPhase(state.nextPomodoroPhase.duration, state.nextPomodoroPhase.name); modals.hidePomodoroPrompt(); modals.playAlarm(true); } });
+    refs.pomodoroPromptStopBtn.addEventListener('click', () => { timers.stopPomodoro(); modals.hidePomodoroPrompt(); modals.playAlarm(true); });
+}
+
+module.exports = { init };
+</file>
+
 <file path="js/timers.js">
 let state, refs, logSession, playAlarm, updateAllDisplays, saveData, saveTimerProgress;
 const modals = require('./modals'); 
@@ -1332,11 +1628,13 @@ function init(appState, uiRefs, logSessionFn, playAlarmFn, updateAllDisplaysFn, 
     saveData = saveDataFn;
     saveTimerProgress = saveTimerProgressFn;
 
+    // Restore state if running
     if (state.pomodoroState !== 'idle') {
         refs.pomodoroStartControls.classList.add('hidden');
         refs.pomodoroRunningControls.classList.remove('hidden');
         refs.pomodoroPauseResumeBtn.disabled = false;
         refs.pomodoroStopBtn.disabled = false;
+        if(refs.pomodoroResetBtn) refs.pomodoroResetBtn.disabled = false;
         if(refs.pomodoroSkipBtn) refs.pomodoroSkipBtn.disabled = false;
         refs.pomodoroPauseResumeBtn.textContent = state.isPomodoroPaused ? "Resume" : "Pause";
         
@@ -1347,9 +1645,23 @@ function init(appState, uiRefs, logSessionFn, playAlarmFn, updateAllDisplaysFn, 
              refs.pomodoroStatus.textContent = "PHASE: BREAK";
              refs.pomodoroStatus.classList.add('break-mode');
         }
-    } else {
-        refs.pomodoroStartControls.classList.remove('hidden');
-        refs.pomodoroRunningControls.classList.add('hidden');
+    }
+
+    if (state.isStopwatchRunning || state.isStopwatchPaused) {
+        refs.stopButton.classList.remove('hidden');
+        refs.resetButton.classList.remove('hidden');
+        refs.stopButton.disabled = false;
+        refs.resetButton.disabled = false;
+        refs.startButton.textContent = state.isStopwatchPaused ? "Resume" : "Pause";
+        refs.courseSelect.disabled = true;
+    }
+
+    if (state.isCountdownRunning || state.isCountdownPaused) {
+        refs.countdownStopBtn.classList.remove('hidden');
+        refs.countdownResetBtn.classList.remove('hidden');
+        refs.countdownStopBtn.disabled = false;
+        refs.countdownResetBtn.disabled = false;
+        refs.countdownStartPauseBtn.textContent = state.isCountdownPaused ? "Resume" : "Pause";
     }
 }
 
@@ -1359,7 +1671,6 @@ function updateTimerTabIndicators() {
     refs.btnTimerCountdown.classList.toggle('running', state.isCountdownRunning || state.isCountdownPaused);
 }
 
-// *** NEW: Updates the display immediately when settings change (if idle) ***
 function updatePomodoroDisplay() {
     if (state.pomodoroState === 'idle') {
         state.pomodoroSecondsLeft = state.pomodoroFocusDuration * 60;
@@ -1373,18 +1684,40 @@ function stopAndLogRunningTimers(excludeTimerType) {
     if (excludeTimerType !== 'countdown' && (state.isCountdownRunning || state.isCountdownPaused)) stopCountdownTimer();
 }
 
-// --- Stopwatch ---
+// --- STOPWATCH ---
 function startTimer() { 
     stopAndLogRunningTimers('stopwatch');
-    if (state.isStopwatchRunning) return; 
-    state.isStopwatchRunning = true; state.isStopwatchPaused = false;
-    refs.startButton.textContent = "Pause"; refs.stopButton.disabled = false; refs.courseSelect.disabled = true; 
-    if (state.stopwatchStartTime === null) { state.stopwatchStartTime = Date.now(); state.stopwatchSeconds = 0; } 
-    else { state.stopwatchStartTime = Date.now() - (state.stopwatchSeconds * 1000); }
-    state.stopwatchTimer = setInterval(() => { 
-        state.stopwatchSeconds = Math.floor((Date.now() - state.stopwatchStartTime) / 1000);
-        refs.timerDisplay.textContent = formatTime(state.stopwatchSeconds); saveTimerProgress(); 
-    }, 1000);
+    
+    if (state.isStopwatchRunning) {
+        // Pause logic
+        pauseTimer();
+    } else if (state.isStopwatchPaused) {
+        // Resume logic
+        state.isStopwatchRunning = true; 
+        state.isStopwatchPaused = false;
+        refs.startButton.textContent = "Pause";
+        // Buttons already visible
+    } else {
+        // Start fresh
+        state.isStopwatchRunning = true; 
+        state.isStopwatchPaused = false;
+        refs.startButton.textContent = "Pause"; 
+        
+        // SHOW BUTTONS
+        refs.stopButton.classList.remove('hidden');
+        refs.resetButton.classList.remove('hidden');
+        refs.stopButton.disabled = false; 
+        refs.resetButton.disabled = false; 
+        refs.courseSelect.disabled = true; 
+        
+        if (state.stopwatchStartTime === null) { state.stopwatchStartTime = Date.now(); state.stopwatchSeconds = 0; } 
+        else { state.stopwatchStartTime = Date.now() - (state.stopwatchSeconds * 1000); }
+        
+        state.stopwatchTimer = setInterval(() => { 
+            state.stopwatchSeconds = Math.floor((Date.now() - state.stopwatchStartTime) / 1000);
+            refs.timerDisplay.textContent = formatTime(state.stopwatchSeconds); saveTimerProgress(); 
+        }, 1000);
+    }
     updateTimerTabIndicators(); saveTimerProgress(); 
 }
 
@@ -1401,17 +1734,35 @@ function stopTimer() {
         logSession(refs.courseSelect.value, state.stopwatchSeconds, refs.sessionNotes.value, new Date(state.stopwatchStartTime).toISOString()); 
         updateAllDisplays();
     }
-    state.isStopwatchRunning = false; state.isStopwatchPaused = false;
-    refs.startButton.textContent = "Start"; refs.startButton.disabled = false; refs.stopButton.disabled = true; refs.courseSelect.disabled = false; 
-    state.stopwatchSeconds = 0; state.stopwatchStartTime = null;
-    refs.timerDisplay.textContent = formatTime(0);
-    updateTimerTabIndicators(); saveData(); 
+    resetStopwatch();
+    saveData(); 
 }
 
-// --- Pomodoro ---
+function resetStopwatch() {
+    clearInterval(state.stopwatchTimer);
+    state.isStopwatchRunning = false; 
+    state.isStopwatchPaused = false;
+    state.stopwatchSeconds = 0; 
+    state.stopwatchStartTime = null;
+    
+    refs.timerDisplay.textContent = formatTime(0);
+    refs.startButton.textContent = "Start";
+    
+    // HIDE BUTTONS
+    refs.stopButton.classList.add('hidden');
+    refs.resetButton.classList.add('hidden');
+    refs.stopButton.disabled = true; 
+    refs.resetButton.disabled = true; 
+    
+    refs.courseSelect.disabled = false;
+    
+    updateTimerTabIndicators();
+    localStorage.removeItem('activeTimer');
+}
+
+// --- POMODORO ---
 function beginNewPomodoroPhase(durationInSeconds, stateName) {
     stopAndLogRunningTimers('pomodoro');
-    
     state.pomodoroOriginalDuration = durationInSeconds;
     if (stateName === 'studying') {
         state.pomodoroStartTime = Date.now();
@@ -1422,8 +1773,15 @@ function beginNewPomodoroPhase(durationInSeconds, stateName) {
         refs.pomodoroStatus.classList.add('break-mode');
     }
     
+    // Switch Panels
     refs.pomodoroStartControls.classList.add('hidden');
     refs.pomodoroRunningControls.classList.remove('hidden');
+    
+    // Enable buttons
+    refs.pomodoroPauseResumeBtn.disabled = false;
+    refs.pomodoroStopBtn.disabled = false;
+    refs.pomodoroResetBtn.disabled = false;
+    refs.pomodoroSkipBtn.disabled = false;
     
     state.isPomodoroPaused = false;
     startPomodoroCountdown(durationInSeconds, stateName);
@@ -1435,63 +1793,42 @@ function handlePomodoroCompletion(isSkipped = false) {
 
     if (state.pomodoroState === 'studying') {
         const elapsed = isSkipped ? (state.pomodoroOriginalDuration - state.pomodoroSecondsLeft) : state.pomodoroOriginalDuration;
-        
         if (elapsed > 0) {
             logSession(refs.pomodoroCourseSelect.value, elapsed, refs.pomodoroNotes.value.trim(), new Date(state.pomodoroStartTime).toISOString());
             updateAllDisplays();
         }
-        
         refs.pomodoroNotes.value = '';
         state.pomodoroCycle += 1;
-
         let nextBreakDuration, nextBreakName;
-        if (state.pomodoroCycle >= 4) { 
-            nextBreakDuration = state.pomodoroLongBreakDuration * 60; nextBreakName = 'longBreak'; 
-        } else { 
-            nextBreakDuration = state.pomodoroShortBreakDuration * 60; nextBreakName = 'shortBreak'; 
-        }
-        
+        if (state.pomodoroCycle >= 4) { nextBreakDuration = state.pomodoroLongBreakDuration * 60; nextBreakName = 'longBreak'; } 
+        else { nextBreakDuration = state.pomodoroShortBreakDuration * 60; nextBreakName = 'shortBreak'; }
         beginNewPomodoroPhase(nextBreakDuration, nextBreakName);
-
     } else {
         if(!isSkipped) setTimeout(() => playAlarm(true), 15000); 
-
         state.nextPomodoroPhase = { duration: state.pomodoroFocusDuration * 60, name: 'studying' };
-        
         modals.showPomodoroPrompt('studying', state.pomodoroFocusDuration * 60);
-        
         state.pomodoroState = 'idle';
         refs.pomodoroStatus.textContent = "COMPLETED";
         updateTimerTabIndicators();
     }
 }
 
-function skipPomodoroPhase() {
-    handlePomodoroCompletion(true);
-}
+function skipPomodoroPhase() { handlePomodoroCompletion(true); }
 
 function startPomodoroCountdown(durationInSeconds, stateName) {
     clearInterval(state.pomodoroTimer); 
     state.pomodoroState = stateName;
     state.pomodoroSecondsLeft = durationInSeconds;
-
-    refs.pomodoroPauseResumeBtn.disabled = false;
-    refs.pomodoroStopBtn.disabled = false;
-    if(refs.pomodoroSkipBtn) refs.pomodoroSkipBtn.disabled = false; 
     refs.pomodoroPauseResumeBtn.textContent = "Pause";
 
     let pomodoroStartTimeForInterval = Date.now();
     state.pomodoroTimer = setInterval(() => {
         const elapsed = Math.floor((Date.now() - pomodoroStartTimeForInterval) / 1000);
         state.pomodoroSecondsLeft = durationInSeconds - elapsed;
-        
         if (state.pomodoroSecondsLeft < 0) state.pomodoroSecondsLeft = 0;
         refs.pomodoroTimerDisplay.textContent = formatCountdown(state.pomodoroSecondsLeft);
         saveTimerProgress();
-
-        if (state.pomodoroSecondsLeft <= 0) {
-            handlePomodoroCompletion(false);
-        }
+        if (state.pomodoroSecondsLeft <= 0) handlePomodoroCompletion(false);
     }, 1000);
     updateTimerTabIndicators(); saveTimerProgress(); 
 }
@@ -1510,7 +1847,6 @@ function togglePomodoroPause() {
 function stopPomodoro() {
     clearInterval(state.pomodoroTimer);
     playAlarm(true);
-
     if (state.pomodoroState === 'studying') {
         const elapsedSeconds = state.pomodoroOriginalDuration - state.pomodoroSecondsLeft;
         if (elapsedSeconds >= 1) { 
@@ -1519,63 +1855,120 @@ function stopPomodoro() {
             refs.pomodoroNotes.value = '';
         }
     }
+    resetPomodoro();
+    saveData(); 
+}
 
+function resetPomodoro() {
+    // Back to default (Start button only)
+    clearInterval(state.pomodoroTimer);
     state.pomodoroState = 'idle';
     state.isPomodoroPaused = false;
-    state.pomodoroSecondsLeft = state.pomodoroFocusDuration * 60; // Reset to new focus duration
+    state.pomodoroSecondsLeft = state.pomodoroFocusDuration * 60;
     state.pomodoroStartTime = null;
+    
     refs.pomodoroTimerDisplay.textContent = formatCountdown(state.pomodoroFocusDuration * 60);
     refs.pomodoroStatus.textContent = "";
     
+    // BACK TO DEFAULT VIEW
     refs.pomodoroStartControls.classList.remove('hidden');
     refs.pomodoroRunningControls.classList.add('hidden');
     
-    refs.pomodoroPauseResumeBtn.disabled = true;
-    refs.pomodoroStopBtn.disabled = true;
-    if(refs.pomodoroSkipBtn) refs.pomodoroSkipBtn.disabled = true; 
-    refs.pomodoroPauseResumeBtn.textContent = "Pause";
-    updateTimerTabIndicators(); saveData(); 
+    updateTimerTabIndicators();
+    localStorage.removeItem('activeTimer');
 }
 
-// --- Countdown ---
+// --- COUNTDOWN ---
 function startCountdownTimer(durationInSeconds) {
     stopAndLogRunningTimers('countdown');
-    if (!state.isCountdownPaused) {
-        const h = parseInt(refs.countdownHours.value) || 0; const m = parseInt(refs.countdownMinutes.value) || 0; const s = parseInt(refs.countdownSeconds.value) || 0;
-        localStorage.setItem('countdownValues', JSON.stringify({ h, m, s }));
-        state.countdownStartTime = Date.now(); state.countdownOriginalDuration = durationInSeconds;
-    }
-    clearInterval(state.countdownTimer); 
-    state.isCountdownRunning = true; state.isCountdownPaused = false;
-    refs.countdownStartPauseBtn.textContent = "Pause"; refs.countdownStopBtn.disabled = false; state.countdownSecondsLeft = durationInSeconds;
     
+    // 1. Determine the duration if not provided (e.g. Button Click)
+    if (durationInSeconds === undefined) {
+        if (state.isCountdownPaused) {
+            // If Resuming, use the time left
+            durationInSeconds = state.countdownSecondsLeft;
+        } else {
+            // If Fresh Start, calculate from inputs
+            const h = parseInt(refs.countdownHours.value) || 0; 
+            const m = parseInt(refs.countdownMinutes.value) || 0; 
+            const s = parseInt(refs.countdownSeconds.value) || 0;
+            durationInSeconds = (h * 3600) + (m * 60) + s;
+        }
+    }
+
+    // 2. Button Logic (Pause/Resume/Start)
+    if (state.isCountdownRunning) {
+        pauseCountdownTimer();
+        return;
+    } 
+    
+    // We are starting or resuming
+    if (state.isCountdownPaused) {
+        // Resume UI
+        state.isCountdownRunning = true; 
+        state.isCountdownPaused = false;
+        refs.countdownStartPauseBtn.textContent = "Pause";
+    } else {
+        // Fresh Start UI & State
+        if (durationInSeconds <= 0) return; 
+
+        // Save inputs only on fresh start
+        const h = parseInt(refs.countdownHours.value) || 0; 
+        const m = parseInt(refs.countdownMinutes.value) || 0; 
+        const s = parseInt(refs.countdownSeconds.value) || 0;
+        localStorage.setItem('countdownValues', JSON.stringify({ h, m, s }));
+        
+        state.countdownStartTime = Date.now(); 
+        state.countdownOriginalDuration = durationInSeconds;
+        state.countdownSecondsLeft = durationInSeconds;
+        
+        state.isCountdownRunning = true; 
+        state.isCountdownPaused = false;
+        
+        refs.countdownStartPauseBtn.textContent = "Pause"; 
+        refs.countdownStopBtn.classList.remove('hidden');
+        refs.countdownResetBtn.classList.remove('hidden');
+        refs.countdownStopBtn.disabled = false;
+        refs.countdownResetBtn.disabled = false;
+    }
+
+    // 3. Interval Logic
+    clearInterval(state.countdownTimer); 
+    
+    // The interval calculates time passed since THIS specific start/resume click
     let countdownStartTimeForInterval = Date.now();
+    // We count down from whatever durationInSeconds was determined in step 1
+    const startDuration = durationInSeconds; 
+
     state.countdownTimer = setInterval(() => {
         if(state.isCountdownPaused) return;
+
         const elapsed = Math.floor((Date.now() - countdownStartTimeForInterval) / 1000);
-        state.countdownSecondsLeft = durationInSeconds - elapsed;
+        state.countdownSecondsLeft = startDuration - elapsed;
         
         if (state.countdownSecondsLeft < 0) state.countdownSecondsLeft = 0;
         refs.countdownTimerDisplay.textContent = formatTime(state.countdownSecondsLeft);
         saveTimerProgress();
 
         if (state.countdownSecondsLeft <= 0) {
-            clearInterval(state.countdownTimer); playAlarm();
+            clearInterval(state.countdownTimer); 
+            playAlarm();
             logSession(refs.countdownCourseSelect.value, state.countdownOriginalDuration, refs.countdownNotes.value.trim(), new Date(state.countdownStartTime).toISOString());
-            updateAllDisplays(); refs.countdownNotes.value = '';
-            setTimeout(() => {
-                playAlarm(true); state.isCountdownRunning = false;
-                refs.countdownStartPauseBtn.textContent = "Start"; refs.countdownStopBtn.disabled = true;
-                updateTimerTabIndicators();
-            }, 10000);
+            updateAllDisplays(); 
+            refs.countdownNotes.value = '';
+            setTimeout(() => { playAlarm(true); resetCountdownTimer(); }, 10000);
         }
     }, 1000);
-    updateTimerTabIndicators(); saveTimerProgress();
+    
+    updateTimerTabIndicators(); 
+    saveTimerProgress();
 }
 
 function pauseCountdownTimer() {
-    clearInterval(state.countdownTimer); state.isCountdownRunning = false; state.isCountdownPaused = true; state.countdownPausedTime = state.countdownSecondsLeft;
-    refs.countdownStartPauseBtn.textContent = "Resume"; updateTimerTabIndicators(); saveTimerProgress(); 
+    clearInterval(state.countdownTimer); 
+    state.isCountdownRunning = false; state.isCountdownPaused = true; state.countdownPausedTime = state.countdownSecondsLeft;
+    refs.countdownStartPauseBtn.textContent = "Resume"; 
+    updateTimerTabIndicators(); saveTimerProgress(); 
 }
 
 function stopCountdownTimer() {
@@ -1585,22 +1978,37 @@ function stopCountdownTimer() {
         logSession(refs.countdownCourseSelect.value, elapsedSeconds, refs.countdownNotes.value.trim(), new Date(state.countdownStartTime).toISOString());
         updateAllDisplays(); refs.countdownNotes.value = '';
     }
-    state.isCountdownRunning = false; state.isCountdownPaused = false; state.countdownStartTime = null;
-    refs.countdownStartPauseBtn.textContent = "Start"; refs.countdownStopBtn.disabled = true;
-    resetCountdownTimer(); updateTimerTabIndicators(); saveData(); 
+    resetCountdownTimer(); 
+    saveData(); 
 }
 
 function resetCountdownTimer() {
-    clearInterval(state.countdownTimer); playAlarm(true); state.isCountdownRunning = false; state.isCountdownPaused = false; state.countdownSecondsLeft = 0; state.countdownStartTime = null;
+    clearInterval(state.countdownTimer); 
+    playAlarm(true); 
+    state.isCountdownRunning = false; state.isCountdownPaused = false; state.countdownSecondsLeft = 0; state.countdownStartTime = null;
+    
     refs.countdownTimerDisplay.textContent = "00:00:00";
     const savedCountdown = JSON.parse(localStorage.getItem('countdownValues'));
     if (savedCountdown) { refs.countdownHours.value = savedCountdown.h; refs.countdownMinutes.value = savedCountdown.m; refs.countdownSeconds.value = savedCountdown.s; }
-    refs.countdownStartPauseBtn.textContent = "Start"; refs.countdownStopBtn.disabled = true; updateTimerTabIndicators();
+    refs.countdownStartPauseBtn.textContent = "Start";
+    
+    // HIDE BUTTONS (Back to default)
+    refs.countdownStopBtn.classList.add('hidden');
+    refs.countdownResetBtn.classList.add('hidden');
+    refs.countdownStopBtn.disabled = true; 
+    refs.countdownResetBtn.disabled = true;
+    
+    updateTimerTabIndicators();
 }
 
 function setTimerMode(mode) {
-    refs.stopwatchPanel.classList.add('hidden'); refs.pomodoroPanel.classList.add('hidden'); refs.countdownPanel.classList.add('hidden');
-    refs.btnTimerStopwatch.classList.remove('active'); refs.btnTimerPomodoro.classList.remove('active'); refs.btnTimerCountdown.classList.remove('active');
+    refs.stopwatchPanel.classList.add('hidden'); 
+    refs.pomodoroPanel.classList.add('hidden'); 
+    refs.countdownPanel.classList.add('hidden');
+    refs.btnTimerStopwatch.classList.remove('active'); 
+    refs.btnTimerPomodoro.classList.remove('active'); 
+    refs.btnTimerCountdown.classList.remove('active');
+    
     if (mode === 'pomodoro') { refs.pomodoroPanel.classList.remove('hidden'); refs.btnTimerPomodoro.classList.add('active'); } 
     else if (mode === 'countdown') { refs.countdownPanel.classList.remove('hidden'); refs.btnTimerCountdown.classList.add('active'); } 
     else { refs.stopwatchPanel.classList.remove('hidden'); refs.btnTimerStopwatch.classList.add('active'); }
@@ -1617,9 +2025,9 @@ function formatCountdown(sec) {
 }
 
 module.exports = {
-    init, startTimer, pauseTimer, stopTimer,
+    init, startTimer, pauseTimer, stopTimer, resetStopwatch,
     beginNewPomodoroPhase, startPomodoroCountdown, togglePomodoroPause, stopPomodoro,
-    skipPomodoroPhase, updatePomodoroDisplay, // Exported new function
+    resetPomodoro, skipPomodoroPhase, updatePomodoroDisplay,
     startCountdownTimer, pauseCountdownTimer, stopCountdownTimer, resetCountdownTimer,
     setTimerMode
 };
@@ -1725,17 +2133,13 @@ function setVolume(val) {
 /// --- BREATHING PACER LOGIC ---
 let breathingInterval;
 let currentVisualMode = 'orb'; // 'orb' or 'lotus'
-let breathStartTime = 0; // <--- ADD THIS LINE
+let breathStartTime = 0; 
 
 function generateLotus(container) {
-    // Clear Orb elements
-    container.innerHTML = '<div class="orb-layer orb-core"></div>'; // Keep core for center
-    
-    // Create 8 petals
+    container.innerHTML = '<div class="orb-layer orb-core"></div>'; 
     for(let i = 0; i < 8; i++) {
         const petal = document.createElement('div');
         petal.className = 'lotus-petal';
-        // IMPORTANT: The space after --r is critical in some browsers
         petal.style.setProperty('--r', (i * 45) + 'deg'); 
         container.appendChild(petal);
     }
@@ -1750,7 +2154,6 @@ function generateOrb(container) {
 }
 
 function toggleVisualMode(visualContainer, btn) {
-    // 1. Switch Internal State & HTML
     if (currentVisualMode === 'orb') {
         currentVisualMode = 'lotus';
         document.getElementById('breathing-card-container').classList.add('style-lotus');
@@ -1763,16 +2166,11 @@ function toggleVisualMode(visualContainer, btn) {
         btn.textContent = "Style: Orb";
     }
 
-    // 2. SYNC LOGIC: If breathing is active, sync new shape to current text time
     if (breathingInterval) {
         const elapsed = Date.now() - breathStartTime;
-        const cycleDuration = 16000; // 16 seconds (matches CSS)
+        const cycleDuration = 16000; 
         const currentOffset = elapsed % cycleDuration;
-
-        // Find the new animated elements (orb layers or lotus petals)
         const animatedElements = visualContainer.querySelectorAll('.orb-layer, .lotus-petal');
-        
-        // Force them to start 'currentOffset' milliseconds into the past
         animatedElements.forEach(el => {
             el.style.animationDelay = `-${currentOffset}ms`;
         });
@@ -1795,11 +2193,16 @@ function toggleBreathing(container, label) {
         container.classList.add('breathing-active');
         body.classList.add('breathing-mode'); 
         
-        breathStartTime = Date.now(); // <--- CHANGE THIS (Use global variable)
+        // --- FIX: Force Reset Animation Alignment ---
+        const animatedElements = document.querySelectorAll('.orb-layer, .lotus-petal');
+        animatedElements.forEach(el => el.style.animationDelay = '0s');
+        // --------------------------------------------
+
+        breathStartTime = Date.now(); 
         
         const updateText = () => {
             const cycleTime = 16000; 
-            const elapsed = (Date.now() - breathStartTime) % cycleTime; // <--- CHANGE THIS
+            const elapsed = (Date.now() - breathStartTime) % cycleTime; 
             
             if (elapsed < 4000) {
                 label.textContent = "Inhale...";
@@ -1822,7 +2225,6 @@ function toggleBreathing(container, label) {
 }
 
 function initToolsListeners() {
-    // ... (Keep existing Audio logic here) ...
     const btnBrown = document.getElementById('noise-brown');
     const btnPink = document.getElementById('noise-pink');
     const btnWhite = document.getElementById('noise-white');
@@ -1842,9 +2244,7 @@ function initToolsListeners() {
     if(btnWhite) btnWhite.addEventListener('click', () => handleNoiseClick('white'));
     if(btnStop) btnStop.addEventListener('click', () => { stopNoise(); updateBtns(); });
     if(volSlider) volSlider.addEventListener('input', (e) => setVolume(e.target.value));
-    // ... (End Audio Logic) ...
 
-    // --- New Breathing Logic ---
     const breathTrigger = document.getElementById('breathing-trigger');
     const breathLabel = document.getElementById('breathing-label');
     const visualContainer = document.getElementById('visual-container');
@@ -1856,7 +2256,7 @@ function initToolsListeners() {
 
     if(styleBtn && visualContainer) {
         styleBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent triggering the breathe toggle
+            e.stopPropagation(); 
             toggleVisualMode(visualContainer, styleBtn);
         });
     }
@@ -1871,6 +2271,7 @@ const refs = {
     timerDisplay: document.getElementById('timerDisplay'), 
     startButton: document.getElementById('startButton'), 
     stopButton: document.getElementById('stopButton'), 
+    resetButton: document.getElementById('resetButton'),
     sessionNotes: document.getElementById('sessionNotes'), 
     sessionLog: document.getElementById('sessionLog'), 
     showAllButton: document.getElementById('showAllButton'), 
@@ -1980,8 +2381,7 @@ const refs = {
     
     pomodoroPauseResumeBtn: document.getElementById('pomodoro-pause-resume-btn'),
     pomodoroStopBtn: document.getElementById('pomodoro-stop-btn'),
-    
-    // *** FIX: Ensure this line exists ***
+    pomodoroResetBtn: document.getElementById('pomodoro-reset-btn'),
     pomodoroSkipBtn: document.getElementById('pomodoro-skip-btn'),
 
     pomodoroNotes: document.getElementById('pomodoroNotes'),
@@ -2008,111 +2408,311 @@ const refs = {
 module.exports = refs;
 </file>
 
-<file path="js/utils.js">
-function getLocalISODateString(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // getMonth() is 0-indexed
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
+<file path="main.js">
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if (require('electron-squirrel-startup')) {
+  app.quit();
 }
 
-module.exports = {
-    getLocalISODateString
-};
+// 1. Configure Logging
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
+
+// 2. Data Migration Logic
+function checkAndMigrateData() {
+    const userDataPath = app.getPath('userData'); // 'medchronos'
+    const appDataPath = app.getPath('appData');
+    
+    // Check old folder names in order of priority
+    const oldAppNames = ['pre-prep-hub', 'residency-prep-hub', 'MedChronus'];
+    const localStoragePath = path.join(userDataPath, 'Local Storage');
+
+    if (fs.existsSync(localStoragePath)) {
+        log.info("Data exists in MedChronos. No migration needed.");
+        return;
+    }
+
+    log.info("Checking for old data to migrate...");
+
+    for (const oldName of oldAppNames) {
+        const oldPath = path.join(appDataPath, oldName);
+        if (fs.existsSync(oldPath)) {
+            log.info(`Migrating data from: ${oldPath}`);
+            try {
+                fs.cpSync(oldPath, userDataPath, { recursive: true, force: true });
+                log.info("Migration successful.");
+                break; 
+            } catch (err) {
+                log.error("Migration failed:", err);
+            }
+        }
+    }
+}
+
+// 3. Auto-Updater Logic
+function setupAutoUpdater(window) {
+  autoUpdater.checkForUpdatesAndNotify();
+
+  autoUpdater.on('update-available', () => {
+    window.webContents.send('update-message', 'Update available. Downloading...');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    const response = dialog.showMessageBoxSync(window, {
+      type: 'info',
+      buttons: ['Restart and Install', 'Later'],
+      title: 'Update Ready',
+      message: 'A new version has been downloaded.',
+      detail: 'Restart the application to apply the update?'
+    });
+
+    if (response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
+}
+
+// 4. Main Window Logic
+app.commandLine.appendSwitch('force-device-scale-factor', '0.9');
+
+async function handleFileOpen() {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg'] }]
+    });
+    if (!canceled) return filePaths[0];
+}
+
+function createWindow() {
+  const mainWindow = new BrowserWindow({
+    width: 1720, height: 1300, minWidth: 800, minHeight: 600,
+    icon: path.join(__dirname, 'icon.ico'),
+    show: false,
+    backgroundColor: '#f4f7f9',
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+    title: `MedChronos v${app.getVersion()}`
+  });
+
+  mainWindow.loadFile('index.html');
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    setupAutoUpdater(mainWindow);
+  });
+}
+
+app.whenReady().then(() => {
+    checkAndMigrateData();
+    ipcMain.handle('dialog:openFile', handleFileOpen);
+    createWindow();
+});
+
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 </file>
 
-<file path="js/views.js">
-let state, refs, showEventModal, logSession;
-const { getLocalISODateString } = require('./utils');
-const { delegate } = require('tippy.js');
-
-function initializeGlobalTooltips() { delegate('body', { target: '[data-tooltip]', content(reference) { return reference.dataset.tooltip; }, allowHTML: false, placement: 'top', animation: 'fade', delay: 15, duration: 0 }); }
-function init(appState, uiRefs, eventModalFn, logSessionFn) { state = appState; refs = uiRefs; showEventModal = eventModalFn; logSession = logSessionFn; }
-function updateStreakDisplay() { refs.streakCount.textContent = state.streakCount; if (state.streakCount > 0) { refs.streakContainer.classList.add('active-streak'); } else { refs.streakContainer.classList.remove('active-streak'); } if (state.streakCount >= state.streakTarget) { refs.streakContainer.classList.add('target-hit'); } else { refs.streakContainer.classList.remove('target-hit'); } }
-function toggleFocusModeVisuals() { if (state.isFocusMode) { document.body.classList.add('focus-mode'); refs.btnFocusMode.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Exit Zen Mode`; refs.btnFocusMode.dataset.tooltip = "Exit Zen Mode"; } else { document.body.classList.remove('focus-mode'); refs.btnFocusMode.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>`; refs.btnFocusMode.dataset.tooltip = "Enter Focus Mode"; } }
-const icons = { edit: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>`, delete: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`, check: `✔` };
-function updateLogDisplay(filterDate = null) { refs.sessionLog.innerHTML = ''; let combinedLog = [...state.allSessions, ...state.allScores]; if (filterDate) { refs.showAllButton.hidden = false; combinedLog = combinedLog.filter(item => getLocalISODateString(new Date(item.timestamp)) === filterDate); } else { refs.showAllButton.hidden = true; } if (state.logViewMode === 'chrono') { refs.btnLogChrono.classList.add('active'); refs.btnLogTopic.classList.remove('active'); combinedLog.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).forEach(item => { const el=document.createElement('div'); const d=new Date(item.timestamp); const fd = `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`; const buttons = `<div class="log-meta"><span class="log-date">${fd}</span><div class="log-actions"><button class="action-icon-btn edit edit-btn" data-timestamp="${item.timestamp}" data-tooltip="Edit">${icons.edit}</button><button class="action-icon-btn delete delete-btn" data-timestamp="${item.timestamp}" data-tooltip="Delete">${icons.delete}</button></div></div>`; if(item.type==='session'){ el.className='log-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="log-duration">${item.duration}</div><div class="log-notes">${item.notes}</div>`; } else { el.className='score-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="score-value">${item.score}%</div><div class="log-notes">${item.notes}</div>`; } refs.sessionLog.appendChild(el); }); } else { refs.btnLogChrono.classList.remove('active'); refs.btnLogTopic.classList.add('active'); const grouped = {}; combinedLog.filter(item => item.notes && item.notes.trim() !== '').forEach(item => { if (!grouped[item.course]) grouped[item.course] = []; grouped[item.course].push(item); }); Object.keys(grouped).sort().forEach(course => { const courseHeader = document.createElement('h3'); courseHeader.className = 'log-course-header'; courseHeader.textContent = course; refs.sessionLog.appendChild(courseHeader); grouped[course].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach((item, index) => { const el=document.createElement('div'); const cleanNote = item.notes.replace(/\(stopped early\)/g, '').trim(); if (item.type === 'session') { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> ${cleanNote}`; } else { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> <strong>${item.score}%</strong> ${cleanNote}`; } refs.sessionLog.appendChild(el); }); }); } }
-
-function updateTaskDashboard() {
-    refs.taskList.innerHTML = ''; 
-    const now = new Date(); now.setHours(0,0,0,0);
-    
-    let filteredEvents;
-    if (state.showCompletedTasks) { refs.btnToggleTasks.textContent = "Show Pending"; filteredEvents = state.allEvents.filter(e => e.isDone); } 
-    else { refs.btnToggleTasks.textContent = "Show Completed"; filteredEvents = state.allEvents.filter(e => !e.isDone); }
-    
-    filteredEvents.sort((a,b) => {
-        const dateA = new Date(a.date); const dateB = new Date(b.date);
-        if (state.showCompletedTasks) return dateB - dateA; return dateA - dateB;
-    });
-    
-    if (filteredEvents.length === 0) { refs.taskList.innerHTML = `<div style="text-align:center; color:#999; margin-top:20px; font-size:0.85rem;">No tasks.</div>`; return; }
-
-    filteredEvents.forEach(event => {
-        const eventDate = new Date(event.date);
-        eventDate.setMinutes(eventDate.getMinutes() + eventDate.getTimezoneOffset());
-        const daysLeft = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        
-        let countdownText = ''; let itemClass = 'task-item';
-        
-        if (state.showCompletedTasks) {
-            itemClass += ' completed'; countdownText = "Done";
-        } else {
-            if(daysLeft < 0) { itemClass += ' overdue'; countdownText = `${-daysLeft}d passed; SHAME!`; } 
-            else if (daysLeft === 0) { itemClass += ' warning-urgent'; countdownText = 'Today'; } 
-            else if (daysLeft <= 3) { itemClass += ' warning-urgent'; countdownText = `${daysLeft}d left`; } 
-            else { countdownText = `${daysLeft}d left`; }
+<file path="package.json">
+{
+  "name": "medchronos",
+  "version": "1.0.3",
+  "description": "A study tracker for medical exams.",
+  "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crocodilusniloticus/residency-prep-hub.git"
+  },
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish"
+  },
+  "author": "ASh",
+  "license": "ISC",
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "icon": "./icon",
+        "executableName": "MedChronos"
+      },
+      "makers": [
+        {
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "setupIcon": "./icon.ico",
+            "setupExe": "MedChronosSetup.exe"
+          }
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": ["darwin"]
+        },
+        {
+          "name": "@electron-forge/maker-deb",
+          "config": { "options": { "icon": "./icon.png" } }
+        },
+        {
+          "name": "@electron-forge/maker-rpm",
+          "config": {}
         }
-        
-        const formattedDate = eventDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        
-        // *** FIX: Simplified Urgency Logic ***
-        let barFill = 0;
-        if (state.showCompletedTasks) {
-            barFill = 100;
-        } else {
-            const maxDays = state.deadlineUrgencyDays || 60;
-            if (daysLeft <= 0) { barFill = 100; }
-            else { barFill = Math.max(0, 100 - ((daysLeft / maxDays) * 100)); }
+      ],
+      "publishers": [
+        {
+          "name": "@electron-forge/publisher-github",
+          "config": {
+            "repository": {
+              "owner": "crocodilusniloticus",
+              "name": "residency-prep-hub"
+            },
+            "prerelease": false,
+            "draft": true
+          }
         }
+      ]
+    }
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "echarts": "^6.0.0",
+    "electron-log": "^5.0.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.1.0",
+    "flatpickr": "^4.6.13",
+    "flatpickr-jalali-support": "^1.0.3",
+    "jdate": "^0.0.2",
+    "luxon": "^3.7.2",
+    "matplotlib": "^1.0.0",
+    "tippy.js": "^6.3.7"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.10.2",
+    "@electron-forge/maker-deb": "^7.10.2",
+    "@electron-forge/maker-rpm": "^7.10.2",
+    "@electron-forge/maker-squirrel": "^7.10.2",
+    "@electron-forge/maker-zip": "^7.10.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
+    "@electron-forge/plugin-fuses": "^7.10.2",
+    "@electron-forge/publisher-github": "^7.10.2",
+    "@electron/fuses": "^1.8.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-reloader": "^1.2.3"
+  }
+}
+</file>
 
-        const item = document.createElement('div'); item.className = itemClass;
+<file path="renderer.js">
+const { ipcRenderer } = require('electron');
+
+window.ipcRenderer = ipcRenderer;
+
+// --- CRITICAL FIX: Load Standard Flatpickr Only ---
+try {
+    // 1. Load the standard, stable calendar engine
+    window.flatpickr = require('flatpickr'); 
+    
+    // 2. Load your custom Persian labels (the ones we fixed in js/fa.js)
+    require('./js/fa.js'); 
+    
+    // 3. Load JDate for the math (needed for the visual conversion)
+    window.JDate = require('jdate');
+
+} catch (e) {
+    console.error("CRITICAL: Failed to load dependencies.", e);
+}
+// --------------------------------------------------
+
+window.echarts = require('echarts');
+const { createPopper } = require('@popperjs/core');
+const tippy = require('tippy.js').default; 
+window.tippy = tippy;
+
+function initializeApp() {
+    if (window.isAppInitialized) {
+        return;
+    }
+
+    const preFlightCheck = () => {
+        const errors = [];
+        if (!window.flatpickr) errors.push('Calendar library failed to load. Did you run "npm install"?');
+        if (!window.echarts) errors.push('ECharts failed to load.');
         
-        let controlsHtml = '';
-        if (state.showCompletedTasks) {
-            controlsHtml = `
-                <button class="action-icon-btn edit task-edit-btn" data-timestamp="${event.timestamp}" data-tooltip="Edit">${icons.edit}</button>
-                <button class="action-icon-btn delete task-delete-btn" data-timestamp="${event.timestamp}" data-tooltip="Delete Permanently">${icons.delete}</button>
-            `;
-        } else {
-            controlsHtml = `
-                <span class="task-date" style="margin-right:8px; font-weight:600; color:${daysLeft < 3 ? 'var(--danger)' : 'var(--text-muted)'}">${countdownText}</span>
-                <button class="action-icon-btn edit task-edit-btn" data-timestamp="${event.timestamp}" data-tooltip="Edit" style="margin-right:4px;">${icons.edit}</button>
-                <button class="task-done-btn" data-timestamp="${event.timestamp}" data-tooltip="Mark Done">✔</button>
-            `;
+        if (errors.length > 0) {
+            throw new Error('Startup Failed:\n' + errors.join('\n'));
         }
+    };
 
-        item.innerHTML = `<div class="task-header">
-                            <div>
-                                <span class="task-title">${event.title}</span>
-                                <span class="task-date" style="display:block; margin-top:2px;">${formattedDate}</span>
-                            </div>
-                            <div class="task-controls" style="display:flex; align-items:center;">${controlsHtml}</div>
-                          </div>
-                          <div class="task-bar-bg"><div class="task-bar-fg" style="width: ${barFill}%;"></div></div>`;
-        refs.taskList.appendChild(item);
-    });
+    try {
+        preFlightCheck(); 
+
+        const state = require('./js/state');
+        const refs = require('./js/uiRefs');
+        const dataManager = require('./js/dataManager');
+        const charts = require('./js/charts');
+        const timers = require('./js/timers');
+        const modals = require('./js/modals');
+        const views = require('./js/views');
+        const listeners = require('./js/listeners');
+        const tools = require('./js/tools'); 
+
+        const updateAllDisplays = () => {
+            views.populateCourses(); 
+            views.updateLogDisplay(); 
+            views.updateCalendar(); 
+            charts.updateTimeChart(); 
+            charts.updateScoreChart(); 
+            views.updateTaskDashboard(); 
+            views.updateCourseEditorList();
+            if(timers && timers.updatePomodoroDisplay) timers.updatePomodoroDisplay();
+        };
+
+        dataManager.init(state, refs);
+        charts.init(state, refs); 
+        charts.initializeCharts(); 
+        charts.setPieMode(state.pieChartMode);
+
+        timers.init(state, refs, dataManager.logSession, modals.playAlarm, updateAllDisplays, dataManager.saveData, dataManager.saveTimerProgress);
+        views.init(state, refs, modals.showEventModal, dataManager.logSession);
+        modals.init(state, refs, dataManager, updateAllDisplays, charts.getTimeChartOptions, charts.getScoreChartOptions, charts.getCharts, charts.getTrendChartOptions);
+        
+        listeners.init(state, refs, timers, modals, charts, views, dataManager, updateAllDisplays);       
+        tools.initToolsListeners(); 
+
+        dataManager.loadData();
+        dataManager.checkForRecoveredSession();
+        views.populateCourses();
+        views.initializeCalendar();
+        views.initializeEventModalPicker();
+        views.initializeGlobalTooltips();
+        
+        updateAllDisplays(); 
+        
+        window.isAppInitialized = true;
+
+        setTimeout(() => {
+            if (charts.getCharts().timeChart) charts.getCharts().timeChart.resize();
+            if (charts.getCharts().scoreChart) charts.getCharts().scoreChart.resize();
+        }, 50);
+
+    } catch (error) {
+        document.body.innerHTML = `
+            <div style="padding: 20px; font-family: sans-serif; background: #fff1f2; color: #9f1239; height: 100vh; text-align: center;">
+                <h2>Startup Error</h2>
+                <p>Could not initialize the app.</p>
+                <pre style="background: #333; color: #fff; padding: 15px; text-align: left;">${error.stack}</pre>
+            </div>
+        `;
+        console.error(error);
+    }
 }
 
-function initializeCalendar() { state.calendar = flatpickr(refs.studyCalendar, { inline: true, locale: { firstDayOfWeek: 6 }, onChange: (selectedDates) => { if (!state.isSavingEvent && selectedDates.length) updateLogDisplay(getLocalISODateString(selectedDates[0])); }, onDayCreate: (dObj, dStr, fp, dayElem) => { const date = getLocalISODateString(dayElem.dateObj); const studyDays = new Set(state.allSessions.map(s => getLocalISODateString(new Date(s.timestamp)))); if (studyDays.has(date)) { dayElem.classList.add("study-day"); } const eventsOnThisDay = state.allEvents.filter(e => e.date === date && !e.isDone); if (eventsOnThisDay.length > 0) { dayElem.classList.add("event-day"); dayElem.dataset.tooltip = eventsOnThisDay.map(e => e.title).join('\n'); } dayElem.addEventListener('contextmenu', (e) => { e.preventDefault(); showEventModal(dayElem.dateObj); }); } }); }
-function updateCalendar() { if (state.calendar) { state.calendar.redraw(); } }
-function resetCalendarToToday() { const today = new Date(); if (state.calendar) { state.calendar.setDate(today, true); state.calendar.jumpToDate(today); } updateLogDisplay(getLocalISODateString(today)); }
-function initializeEventModalPicker() { state.eventModalPicker = flatpickr(refs.eventDatePicker, { dateFormat: "Y-m-d" }); }
-function populateCourses() { refs.courseSelect.innerHTML = ''; refs.scoreCourseSelect.innerHTML = ''; refs.editCourseSelect.innerHTML = ''; refs.pomodoroCourseSelect.innerHTML = ''; refs.countdownCourseSelect.innerHTML = ''; state.allCourses.forEach(c => { const o1=document.createElement('option');o1.value=c;o1.textContent=c;refs.courseSelect.appendChild(o1); const o2=document.createElement('option');o2.value=c;o2.textContent=c;refs.scoreCourseSelect.appendChild(o2); const o3=document.createElement('option');o3.value=c;o3.textContent=c;refs.editCourseSelect.appendChild(o3); const o4=document.createElement('option');o4.value=c;o4.textContent=c;refs.pomodoroCourseSelect.appendChild(o4); const o5=document.createElement('option');o5.value=c;o5.textContent=c;refs.countdownCourseSelect.appendChild(o5); }); if (state.lastSelectedCourse && state.allCourses.includes(state.lastSelectedCourse)) { refs.courseSelect.value = state.lastSelectedCourse; refs.scoreCourseSelect.value = state.lastSelectedCourse; refs.editCourseSelect.value = state.lastSelectedCourse; refs.pomodoroCourseSelect.value = state.lastSelectedCourse; refs.countdownCourseSelect.value = state.lastSelectedCourse; } }
-function updateCourseEditorList() { refs.courseListEditor.innerHTML = ''; state.allCourses.forEach(course => { const item = document.createElement('div'); item.className = 'course-list-item'; item.style.cssText = "display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; align-items:center;"; item.innerHTML = `<span>${course}</span><button class="action-icon-btn delete course-delete-btn" data-course="${course}">${icons.delete}</button>`; refs.courseListEditor.appendChild(item); }); }
-function setLogViewMode(mode) { state.logViewMode = mode; updateLogDisplay(); }
-
-module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisplay, toggleFocusModeVisuals, initializeCalendar, updateCalendar, resetCalendarToToday, initializeEventModalPicker, populateCourses, updateCourseEditorList, setLogViewMode, initializeGlobalTooltips };
+document.addEventListener('DOMContentLoaded', initializeApp);
 </file>
 
 <file path="index.html">
@@ -2120,17 +2720,23 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self'; 
-        script-src 'self' 'unsafe-eval';
-        style-src 'self' 'unsafe-inline';
-        img-src 'self' data:;
-        media-src 'self' file:; 
-    ">
+    <!-- Security Policy allows local scripts and styles -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; media-src 'self' file:;">
     <title>MedChronos</title>
+    
     <!-- CSS Dependencies -->
-    <link rel="stylesheet" href="./node_modules/flatpickr/dist/flatpickr.min.css">
+    <!-- 1. Standard Flatpickr Styles -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- 2. Airbnb Theme (cleaner look) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+    <!-- 3. Your App Styles -->
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- CSS Override for Persian Direction -->
+    <style>
+        .flatpickr-calendar { font-family: 'Inter', sans-serif; direction: rtl; }
+        .flatpickr-month { direction: ltr; } /* Keeps arrows correct */
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -2159,13 +2765,12 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
         <!-- MAIN GRID -->
         <div class="dashboard-grid">
             
-            <!-- 1. STUDY CARD (Charts) -->
+            <!-- 1. STUDY CARD -->
             <section class="card study-card">
                 <div class="card-header">
                     <h3>Study Trend</h3>
                     <div class="chart-controls-group">
                         <div class="toggle-pill-container">
-                            <!-- FIXED: Fixed width buttons to stop jerking -->
                             <button id="btn-pie-trend" class="toggle-pill active" style="width: 70px;">Trend</button>
                             <button id="btn-pie-total" class="toggle-pill" style="width: 70px;">Total</button>
                             <button id="btn-pie-today" class="toggle-pill" style="width: 70px;">Today</button>
@@ -2176,23 +2781,15 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                         </select>
                     </div>
                 </div>
-                
                 <div class="chart-wrapper">
-                    <!-- 1. Header Row (Stats) -->
                     <div class="chart-header-row">
                         <div id="trend-stats-container" class="trend-stats-box">
                             <span id="trend-stats-value" class="stat-value">--</span>
                             <span id="trend-stats-status" class="stat-status"></span>
                         </div>
                     </div>
-                    
-                    <!-- 2. NEW DEDICATED CONTAINER (Reference point for alignment) -->
                     <div class="chart-content-area" style="position: relative; flex-grow: 1; width: 100%; min-height: 0;">
-                        
-                        <!-- The Chart -->
                         <div class="chart-container chart-clickable" id="time-chart" style="width: 100%; height: 100%;"></div>
-                        
-                        <!-- The Overlay (Now relative to content-area, not the whole card) -->
                         <div id="pie-overlay" class="pie-center-text hidden">
                             <div id="pie-val" class="pie-val-text">0.0</div>
                             <div class="pie-label-text">HOURS</div>
@@ -2205,7 +2802,6 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
             <section class="card performance-card">
                 <div class="card-header">
                     <h3>Performance</h3>
-                    <!-- Controls are hidden by default via CSS for hover effect -->
                     <div class="chart-controls-group"></div>
                 </div>
                 <div class="chart-wrapper">
@@ -2223,7 +2819,7 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                 <div id="task-list" class="custom-scrollbar"></div>
             </section>
 
-            <!-- 4. LEFT STACK (Calendar + Score Log) -->
+            <!-- 4. LEFT STACK -->
             <div class="left-stack">
                 <section class="card calendar-card">
                     <div class="card-header compact-header">
@@ -2259,19 +2855,20 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                     <button id="btn-timer-countdown" class="mode-tab">Countdown</button>
                 </div>
                 <div class="timer-body">
-                    <!-- Stopwatch Panel -->
+                    <!-- Stopwatch -->
                     <div id="stopwatch-panel" class="timer-panel">
                         <div class="input-group"><select id="courseSelect" class="modern-select large-text"></select></div>
                         <div class="timer-display-container"><div id="timerDisplay" class="main-timer-text">00:00:00</div></div>
                         <div class="timer-actions">
                             <button id="startButton" class="btn btn-primary btn-large">Start Session</button>
-                            <button id="stopButton" class="btn btn-danger btn-large" disabled>Stop</button>
+                            <button id="stopButton" class="btn btn-danger hidden" disabled>Stop</button>
+                            <button id="resetButton" class="btn btn-ghost hidden" disabled>Reset</button> 
                         </div>
                         <div id="timerError" class="error-message"></div>
                         <textarea id="sessionNotes" class="modern-textarea" placeholder="Session notes..."></textarea>
                     </div>
                     
-                    <!-- Pomodoro Panel -->
+                    <!-- Pomodoro -->
                     <div id="pomodoro-panel" class="timer-panel hidden">
                         <div class="input-group"><select id="pomodoroCourseSelect" class="modern-select large-text"></select></div>
                         <div class="timer-display-container">
@@ -2283,14 +2880,15 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                         </div>
                         <div id="pomodoro-running-controls" class="timer-actions hidden">
                             <button id="pomodoro-pause-resume-btn" class="btn btn-primary">Pause</button>
-                            <button id="pomodoro-skip-btn" class="btn btn-outline" data-tooltip="Skip current phase">Skip</button>
                             <button id="pomodoro-stop-btn" class="btn btn-danger">Stop</button>
+                            <button id="pomodoro-reset-btn" class="btn btn-outline">Reset</button> 
+                            <button id="pomodoro-skip-btn" class="btn btn-outline" data-tooltip="Skip current phase">Skip</button>
                         </div>
                         <div id="pomodoroError" class="error-message"></div>
                         <textarea id="pomodoroNotes" class="modern-textarea" placeholder="Session notes..."></textarea>
                     </div>
 
-                    <!-- Countdown Panel -->
+                    <!-- Countdown -->
                     <div id="countdown-panel" class="timer-panel hidden">
                         <div class="input-group"><select id="countdownCourseSelect" class="modern-select large-text"></select></div>
                         <div class="timer-display-container"><div id="countdownTimerDisplay" class="main-timer-text">00:00:00</div></div>
@@ -2300,9 +2898,9 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                             <div class="time-input-wrapper"><input type="number" id="countdown-seconds" min="0" max="59" placeholder="00"><label>SEC</label></div>
                         </div>
                         <div class="timer-actions">
-                            <button id="countdown-start-pause-btn" class="btn btn-primary">Start</button>
-                            <button id="countdown-stop-btn" class="btn btn-danger" disabled>Stop</button>
-                            <button id="countdown-reset-btn" class="btn btn-ghost">Reset</button>
+                            <button id="countdown-start-pause-btn" class="btn btn-primary btn-large">Start</button>
+                            <button id="countdown-stop-btn" class="btn btn-danger hidden" disabled>Stop</button>
+                            <button id="countdown-reset-btn" class="btn btn-ghost hidden" disabled>Reset</button>
                         </div>
                         <div id="countdownError" class="error-message"></div>
                         <textarea id="countdownNotes" class="modern-textarea" placeholder="Session notes..."></textarea>
@@ -2310,9 +2908,8 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                 </div>
             </section>
 
-            <!-- 6. TOOLS STACK (Sound & Breathing) -->
+            <!-- 6. TOOLS STACK -->
             <div class="tools-stack">
-                <!-- Soundscapes -->
                 <section class="card sound-card">
                     <div class="card-header compact-header" style="width:100%; position: absolute; top: 15px; left: 0; padding: 0 20px;">
                         <h3>Focus Audio</h3>
@@ -2332,14 +2929,12 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
                     </div>
                 </section>
 
-                <!-- Breathing (Visuals handled by JS) -->
                 <section class="card breathing-card" id="breathing-card-container">
                     <div class="card-header compact-header" style="width:100%; position: absolute; top: 15px; left: 0; padding: 0 20px;">
                         <h3>Box Breathing</h3>
                     </div>
                     <div class="breathing-circle-container" id="breathing-trigger">
                         <div id="visual-container">
-                            <!-- Default Orb Structure -->
                             <div class="orb-layer orb-glow"></div>
                             <div class="orb-layer orb-ring"></div>
                             <div class="orb-layer orb-core"></div>
@@ -2508,261 +3103,11 @@ module.exports = { init, updateLogDisplay, updateTaskDashboard, updateStreakDisp
     </div>
 
     <audio id="alarm-sound"></audio>
+    
+    <!-- IMPORTANT: Only local script loaded -->
     <script src="./renderer.js"></script>
 </body>
 </html>
-</file>
-
-<file path="main.js">
-const { app, BrowserWindow, ipcMain, dialog } = require('electron'); // <-- FIX
-const path = require('path'); // <--- ADD THIS
-
-// Add the require statement for the package
-try {
-  require('electron-reloader')(module);
-} catch (_) {}
-
-app.commandLine.appendSwitch('force-device-scale-factor', '0.9');
-
-// This function handles the "Choose File" button click
-async function handleFileOpen() {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [
-            { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg'] }
-        ]
-    });
-    if (!canceled) {
-        return filePaths[0];
-    }
-}
-
-function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 1600,
-    height: 1300,
-    minWidth: 800,
-    minHeight: 600,
-    icon: path.join(__dirname, 'icon.ico'),
-    
-    // Reverting to the 'show' method that was causing the "green screen"
-    // because it was the most recent stable version you had.
-    // If this causes the "refresh" bug again, we must remove it.
-    show: false,
-    backgroundColor: '#f4f7f9',
-
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-    title: "MedChronos"
-  });
-
-  mainWindow.loadFile('index.html');
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
-  // This is correctly commented out
-  // mainWindow.webContents.openDevTools();
-}
-
-app.whenReady().then(() => {
-    // This tells the main process to listen for the renderer's request
-    ipcMain.handle('dialog:openFile', handleFileOpen);
-    
-    createWindow();
-});
-
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-</file>
-
-<file path="package.json">
-{
-  "name": "pre-prep-hub",
-  "version": "1.0.1",
-  "description": "A study tracker for medical exams.",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
-  },
-  "keywords": [],
-  "author": "ASh",
-  "license": "ISC",
-  "config": {
-    "forge": {
-      "packagerConfig": {
-        "icon": "./icon"
-      },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "setupIcon": "./icon.ico"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin",
-            "linux"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {
-            "options": {
-              "icon": "./icon.png"
-            }
-          }
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ]
-    }
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^7.10.2",
-    "@electron-forge/maker-deb": "^7.10.2",
-    "@electron-forge/maker-rpm": "^7.10.2",
-    "@electron-forge/maker-squirrel": "^7.10.2",
-    "@electron-forge/maker-zip": "^7.10.2",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
-    "@electron-forge/plugin-fuses": "^7.10.2",
-    "@electron/fuses": "^1.8.0",
-    "electron": "^28.0.0",
-    "electron-reloader": "^1.2.3"
-  },
-  "dependencies": {
-    "@popperjs/core": "^2.11.8",
-    "echarts": "^6.0.0",
-    "electron-squirrel-startup": "^1.0.1",
-    "flatpickr": "^4.6.13",
-    "luxon": "^3.7.2",
-    "matplotlib": "^1.0.0",
-    "tippy.js": "^6.3.7"
-  }
-}
-</file>
-
-<file path="renderer.js">
-const { ipcRenderer } = require('electron');
-
-window.ipcRenderer = ipcRenderer;
-window.flatpickr = require('flatpickr');
-window.echarts = require('echarts');
-const { createPopper } = require('@popperjs/core');
-const tippy = require('tippy.js').default; 
-window.tippy = tippy;
-
-function initializeApp() {
-    if (window.isAppInitialized) {
-        console.warn("App is already initialized. Skipping re-init.");
-        return;
-    }
-
-    const preFlightCheck = () => {
-        const errors = [];
-        if (!window.flatpickr) errors.push('Flatpickr (calendar) failed to load.');
-        if (!window.echarts) errors.push('ECharts (charts) failed to load.');
-        if (!window.tippy) errors.push('Tippy.js (tooltips) failed to load.');
-        
-        if (errors.length > 0) {
-            throw new Error('Fatal: Core libraries failed to load:\n- ' + errors.join('\n- '));
-        }
-    };
-
-    try {
-        preFlightCheck(); 
-
-        const state = require('./js/state');
-        const refs = require('./js/uiRefs');
-        
-        // *** DIAGNOSTIC: CHECK FOR MISSING HTML ELEMENTS ***
-        let missingRefs = [];
-        for (const [key, element] of Object.entries(refs)) {
-            if (element === null) {
-                const inferredId = key.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
-                missingRefs.push(`${key} (Expected ID: ${inferredId}?)`);
-            }
-        }
-        if (missingRefs.length > 0) {
-            console.error("CRITICAL UI ERROR: The following elements are missing from index.html:", missingRefs);
-        }
-        // ***************************************************
-
-        const dataManager = require('./js/dataManager');
-        const charts = require('./js/charts');
-        const timers = require('./js/timers');
-        const modals = require('./js/modals');
-        const views = require('./js/views');
-        const listeners = require('./js/listeners');
-        const tools = require('./js/tools'); // New Tools Module
-
-        const updateAllDisplays = () => {
-            views.populateCourses(); 
-            views.updateLogDisplay(); 
-            views.updateCalendar(); 
-            charts.updateTimeChart(); 
-            charts.updateScoreChart(); 
-            views.updateTaskDashboard(); 
-            views.updateCourseEditorList();
-            
-            if(timers && timers.updatePomodoroDisplay) {
-                timers.updatePomodoroDisplay();
-            }
-        };
-
-        dataManager.init(state, refs);
-        charts.init(state, refs); 
-        
-        charts.initializeCharts(); 
-        charts.setPieMode(state.pieChartMode);
-
-        timers.init(state, refs, dataManager.logSession, modals.playAlarm, updateAllDisplays, dataManager.saveData, dataManager.saveTimerProgress);
-        views.init(state, refs, modals.showEventModal, dataManager.logSession);
-        modals.init(state, refs, dataManager, updateAllDisplays, charts.getTimeChartOptions, charts.getScoreChartOptions, charts.getCharts, charts.getTrendChartOptions);
-        
-        listeners.init(state, refs, timers, modals, charts, views, dataManager, updateAllDisplays);       
-        // Initialize new tools logic (Audio/Breathing)
-        tools.initToolsListeners(); 
-
-        dataManager.loadData();
-        dataManager.checkForRecoveredSession();
-        views.populateCourses();
-        views.initializeCalendar();
-        views.initializeEventModalPicker();
-        views.initializeGlobalTooltips();
-        
-        updateAllDisplays(); 
-        
-        window.isAppInitialized = true;
-
-        setTimeout(() => {
-            if (charts.getCharts().timeChart) charts.getCharts().timeChart.resize();
-            if (charts.getCharts().scoreChart) charts.getCharts().scoreChart.resize();
-        }, 50);
-
-    } catch (error) {
-        document.body.innerHTML = `
-            <div style="padding: 20px; font-family: 'Georgia', serif; background: #fff1f2; color: #9f1239;">
-                <h1>Application Failed to Start</h1>
-                <p>A critical error occurred during initialization.</p>
-                <p><strong>If you just updated HTML:</strong> You might be missing an ID. Check the Console (Ctrl+Shift+I) for "CRITICAL UI ERROR".</p>
-                <pre style="background-color: #fff; padding: 10px; border: 1px solid #fecaca;">${error.stack}</pre>
-            </div>
-        `;
-        console.error(error);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', initializeApp);
 </file>
 
 <file path="styles.css">
@@ -2866,7 +3211,7 @@ body {
 
 .app-container {
     margin: 0 auto;
-    min-width: 1380px; 
+    min-width: 1680px; 
     min-height: 1100px; 
     height: 100vh; 
     display: flex; flex-direction: column;
@@ -3053,21 +3398,52 @@ span.flatpickr-weekday {
 }
 
 /* 4. Fix the Numbers (Make them DARK Ink) */
+/* 1. Reset the cell layout */
 .flatpickr-day {
-    color: var(--text-main) !important; /* <--- THIS FIXES THE INVISIBLE NUMBERS */
-    background: transparent !important;
-    border: 1px solid transparent !important; 
-    border-radius: 50% !important; 
-    box-shadow: none !important;
-    font-weight: 500;
+    position: relative; 
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Align numbers to top */
+    align-items: flex-start;     /* Align numbers to left */
+    padding: 2px;
+    height: 40px; /* Slightly taller */
+    line-height: 1;
+    border: 1px solid transparent; /* Prevents jumping */
 }
+
+/* 2. The Persian Date (Red Number) - Bottom Right */
+.jalaali-date {
+    position: absolute;
+    bottom: 3px;
+    right: 5px;
+    font-size: 0.75rem;
+    color: var(--danger); /* Red color for Persian date */
+    font-weight: 700;
+    opacity: 0.8;
+}
+
+/* 3. DEADLINES: Gold Dot (Top Right) */
+/* This replaces the ugly yellow line */
 .flatpickr-day.event-day {
-    /* Make the line thicker (3px) so it's clearly visible */
-    border-bottom: 3px solid var(--warning) !important;
-    
-    /* Ensure the line isn't hidden by the transparent background */
-    border-radius: 4px !important; /* Slight rounding looks better with a line than 50% circle */
+    border-bottom: none !important; /* Remove the line */
 }
+.flatpickr-day.event-day::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 30px;
+    width: 6px;
+    height: 6px;
+    background-color: var(--warning); /* Gold */
+    border-radius: 50%;
+}
+
+/* 4. STUDY DAYS: Green Dot (Top Center) or Background */
+.flatpickr-day.study-day {
+    background-color: rgba(102, 187, 106, 0.1); /* Very faint green background */
+    font-weight: bold;
+}
+
 
 
 /* Hover Effect */
@@ -3113,6 +3489,7 @@ span.flatpickr-weekday {
 .timer-display-container { text-align: center; margin: 5px 0; }
 .main-timer-text { font-size: 4rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-main); line-height: 1; letter-spacing: -2px; }
 .status-badge { display: inline-block; margin-top: 8px; padding: 6px 16px; border-radius: 20px; background: var(--primary-light); color: var(--primary); font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.status-badge:empty { display: none; }
 .status-badge.break-mode { background-color: var(--success-bg); color: var(--success); }
 .countdown-inputs-row { display: flex; justify-content: center; gap: 12px; margin-bottom: 10px; }
 .time-input-wrapper { display: flex; flex-direction: column; align-items: center; }
@@ -3571,6 +3948,21 @@ body.focus-mode .timer-card { position: fixed; top: 0; left: 0; width: 100vw; he
 body.focus-mode .card-header h3 { display: none; }
 body.focus-mode .card-header { position: absolute; top: 20px; right: 20px; width: auto; margin: 0; }
 body.focus-mode .timer-body { width: 100%; max-width: 600px; }
+/* --- FIX: Make text visible against dark background --- */
+body.focus-mode .main-timer-text { 
+    color: var(--text-on-desk); 
+}
+
+body.focus-mode .time-input-wrapper label {
+    color: var(--text-on-desk);
+}
+
+body.focus-mode .mode-tab {
+    color: var(--text-muted); 
+}
+body.focus-mode .mode-tab.active {
+    color: var(--text-main); /* Keep active tab dark text on white bg */
+}
 body.focus-mode #btn-focus-mode { background: rgba(231, 76, 60, 0.2); color: #c0392b; border: 1px solid rgba(231, 76, 60, 0.3); padding: 8px 16px; width: auto; border-radius: 8px; font-weight: 600; display: flex; gap: 8px; }
 
 /* --- BREATHING ZEN MODE --- */

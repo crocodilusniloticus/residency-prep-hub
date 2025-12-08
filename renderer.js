@@ -1,7 +1,23 @@
 const { ipcRenderer } = require('electron');
 
 window.ipcRenderer = ipcRenderer;
-window.flatpickr = require('flatpickr');
+
+// --- CRITICAL FIX: Load Standard Flatpickr Only ---
+try {
+    // 1. Load the standard, stable calendar engine
+    window.flatpickr = require('flatpickr'); 
+    
+    // 2. Load your custom Persian labels (the ones we fixed in js/fa.js)
+    require('./js/fa.js'); 
+    
+    // 3. Load JDate for the math (needed for the visual conversion)
+    window.JDate = require('jdate');
+
+} catch (e) {
+    console.error("CRITICAL: Failed to load dependencies.", e);
+}
+// --------------------------------------------------
+
 window.echarts = require('echarts');
 const { createPopper } = require('@popperjs/core');
 const tippy = require('tippy.js').default; 
@@ -9,18 +25,16 @@ window.tippy = tippy;
 
 function initializeApp() {
     if (window.isAppInitialized) {
-        console.warn("App is already initialized. Skipping re-init.");
         return;
     }
 
     const preFlightCheck = () => {
         const errors = [];
-        if (!window.flatpickr) errors.push('Flatpickr (calendar) failed to load.');
-        if (!window.echarts) errors.push('ECharts (charts) failed to load.');
-        if (!window.tippy) errors.push('Tippy.js (tooltips) failed to load.');
+        if (!window.flatpickr) errors.push('Calendar library failed to load. Did you run "npm install"?');
+        if (!window.echarts) errors.push('ECharts failed to load.');
         
         if (errors.length > 0) {
-            throw new Error('Fatal: Core libraries failed to load:\n- ' + errors.join('\n- '));
+            throw new Error('Startup Failed:\n' + errors.join('\n'));
         }
     };
 
@@ -29,27 +43,13 @@ function initializeApp() {
 
         const state = require('./js/state');
         const refs = require('./js/uiRefs');
-        
-        // *** DIAGNOSTIC: CHECK FOR MISSING HTML ELEMENTS ***
-        let missingRefs = [];
-        for (const [key, element] of Object.entries(refs)) {
-            if (element === null) {
-                const inferredId = key.replace(/[A-Z]/g, m => "-" + m.toLowerCase());
-                missingRefs.push(`${key} (Expected ID: ${inferredId}?)`);
-            }
-        }
-        if (missingRefs.length > 0) {
-            console.error("CRITICAL UI ERROR: The following elements are missing from index.html:", missingRefs);
-        }
-        // ***************************************************
-
         const dataManager = require('./js/dataManager');
         const charts = require('./js/charts');
         const timers = require('./js/timers');
         const modals = require('./js/modals');
         const views = require('./js/views');
         const listeners = require('./js/listeners');
-        const tools = require('./js/tools'); // New Tools Module
+        const tools = require('./js/tools'); 
 
         const updateAllDisplays = () => {
             views.populateCourses(); 
@@ -59,15 +59,11 @@ function initializeApp() {
             charts.updateScoreChart(); 
             views.updateTaskDashboard(); 
             views.updateCourseEditorList();
-            
-            if(timers && timers.updatePomodoroDisplay) {
-                timers.updatePomodoroDisplay();
-            }
+            if(timers && timers.updatePomodoroDisplay) timers.updatePomodoroDisplay();
         };
 
         dataManager.init(state, refs);
         charts.init(state, refs); 
-        
         charts.initializeCharts(); 
         charts.setPieMode(state.pieChartMode);
 
@@ -76,7 +72,6 @@ function initializeApp() {
         modals.init(state, refs, dataManager, updateAllDisplays, charts.getTimeChartOptions, charts.getScoreChartOptions, charts.getCharts, charts.getTrendChartOptions);
         
         listeners.init(state, refs, timers, modals, charts, views, dataManager, updateAllDisplays);       
-        // Initialize new tools logic (Audio/Breathing)
         tools.initToolsListeners(); 
 
         dataManager.loadData();
@@ -97,11 +92,10 @@ function initializeApp() {
 
     } catch (error) {
         document.body.innerHTML = `
-            <div style="padding: 20px; font-family: 'Georgia', serif; background: #fff1f2; color: #9f1239;">
-                <h1>Application Failed to Start</h1>
-                <p>A critical error occurred during initialization.</p>
-                <p><strong>If you just updated HTML:</strong> You might be missing an ID. Check the Console (Ctrl+Shift+I) for "CRITICAL UI ERROR".</p>
-                <pre style="background-color: #fff; padding: 10px; border: 1px solid #fecaca;">${error.stack}</pre>
+            <div style="padding: 20px; font-family: sans-serif; background: #fff1f2; color: #9f1239; height: 100vh; text-align: center;">
+                <h2>Startup Error</h2>
+                <p>Could not initialize the app.</p>
+                <pre style="background: #333; color: #fff; padding: 15px; text-align: left;">${error.stack}</pre>
             </div>
         `;
         console.error(error);

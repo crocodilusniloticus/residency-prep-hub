@@ -1,5 +1,48 @@
 let state, refs, showEventModal, logSession;
-const { getLocalISODateString } = require('./utils');
+// IMPORT NEW UTILS
+// Add toJalaali to the list inside the curly braces
+const { getLocalISODateString, getPersianDateString, getFullPersianDate, toJalaali } = require('./utils');
+function initializeCalendar() { 
+    state.calendar = flatpickr(refs.studyCalendar, { 
+        inline: true, 
+        locale: 'fa', 
+        altInput: true, 
+        altFormat: "Y/m/d",
+        dateFormat: "Y-m-d",
+        
+        onChange: (selectedDates) => { 
+            if (!state.isSavingEvent && selectedDates.length) {
+                updateLogDisplay(getLocalISODateString(selectedDates[0])); 
+            }
+        }, 
+
+        // *** THE REAL BUILD: VISUAL INJECTION ***
+        onDayCreate: (dObj, dStr, fp, dayElem) => { 
+            // 1. Convert the cell's date to Jalaali
+            const dateObj = dayElem.dateObj;
+            const j = toJalaali(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+            
+            // 2. Add the Persian number into the HTML
+            dayElem.innerHTML += `<span class="jalaali-date">${j.jd}</span>`;
+
+            // 3. Existing Event Logic
+            const date = getLocalISODateString(dateObj); 
+            const studyDays = new Set(state.allSessions.map(s => getLocalISODateString(new Date(s.timestamp)))); 
+            if (studyDays.has(date)) { dayElem.classList.add("study-day"); } 
+            
+            const eventsOnThisDay = state.allEvents.filter(e => e.date === date && !e.isDone); 
+            if (eventsOnThisDay.length > 0) { 
+                dayElem.classList.add("event-day"); 
+                // Add an event dot indicator
+                dayElem.innerHTML += `<span class="event-dot"></span>`;
+                // Use Tippy for tooltip instead of native title
+                dayElem.setAttribute('data-tooltip', eventsOnThisDay.map(e => e.title).join('\n'));
+            } 
+            
+            dayElem.addEventListener('contextmenu', (e) => { e.preventDefault(); showEventModal(dayElem.dateObj); }); 
+        } 
+    }); 
+}
 const { delegate } = require('tippy.js');
 
 function initializeGlobalTooltips() { delegate('body', { target: '[data-tooltip]', content(reference) { return reference.dataset.tooltip; }, allowHTML: false, placement: 'top', animation: 'fade', delay: 15, duration: 0 }); }
@@ -7,7 +50,40 @@ function init(appState, uiRefs, eventModalFn, logSessionFn) { state = appState; 
 function updateStreakDisplay() { refs.streakCount.textContent = state.streakCount; if (state.streakCount > 0) { refs.streakContainer.classList.add('active-streak'); } else { refs.streakContainer.classList.remove('active-streak'); } if (state.streakCount >= state.streakTarget) { refs.streakContainer.classList.add('target-hit'); } else { refs.streakContainer.classList.remove('target-hit'); } }
 function toggleFocusModeVisuals() { if (state.isFocusMode) { document.body.classList.add('focus-mode'); refs.btnFocusMode.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Exit Zen Mode`; refs.btnFocusMode.dataset.tooltip = "Exit Zen Mode"; } else { document.body.classList.remove('focus-mode'); refs.btnFocusMode.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>`; refs.btnFocusMode.dataset.tooltip = "Enter Focus Mode"; } }
 const icons = { edit: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>`, delete: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`, check: `✔` };
-function updateLogDisplay(filterDate = null) { refs.sessionLog.innerHTML = ''; let combinedLog = [...state.allSessions, ...state.allScores]; if (filterDate) { refs.showAllButton.hidden = false; combinedLog = combinedLog.filter(item => getLocalISODateString(new Date(item.timestamp)) === filterDate); } else { refs.showAllButton.hidden = true; } if (state.logViewMode === 'chrono') { refs.btnLogChrono.classList.add('active'); refs.btnLogTopic.classList.remove('active'); combinedLog.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).forEach(item => { const el=document.createElement('div'); const d=new Date(item.timestamp); const fd = `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`; const buttons = `<div class="log-meta"><span class="log-date">${fd}</span><div class="log-actions"><button class="action-icon-btn edit edit-btn" data-timestamp="${item.timestamp}" data-tooltip="Edit">${icons.edit}</button><button class="action-icon-btn delete delete-btn" data-timestamp="${item.timestamp}" data-tooltip="Delete">${icons.delete}</button></div></div>`; if(item.type==='session'){ el.className='log-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="log-duration">${item.duration}</div><div class="log-notes">${item.notes}</div>`; } else { el.className='score-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="score-value">${item.score}%</div><div class="log-notes">${item.notes}</div>`; } refs.sessionLog.appendChild(el); }); } else { refs.btnLogChrono.classList.remove('active'); refs.btnLogTopic.classList.add('active'); const grouped = {}; combinedLog.filter(item => item.notes && item.notes.trim() !== '').forEach(item => { if (!grouped[item.course]) grouped[item.course] = []; grouped[item.course].push(item); }); Object.keys(grouped).sort().forEach(course => { const courseHeader = document.createElement('h3'); courseHeader.className = 'log-course-header'; courseHeader.textContent = course; refs.sessionLog.appendChild(courseHeader); grouped[course].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach((item, index) => { const el=document.createElement('div'); const cleanNote = item.notes.replace(/\(stopped early\)/g, '').trim(); if (item.type === 'session') { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> ${cleanNote}`; } else { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> <strong>${item.score}%</strong> ${cleanNote}`; } refs.sessionLog.appendChild(el); }); }); } }
+
+function updateLogDisplay(filterDate = null) { 
+    refs.sessionLog.innerHTML = ''; 
+    let combinedLog = [...state.allSessions, ...state.allScores]; 
+    if (filterDate) { 
+        refs.showAllButton.hidden = false; 
+        combinedLog = combinedLog.filter(item => getLocalISODateString(new Date(item.timestamp)) === filterDate); 
+    } else { 
+        refs.showAllButton.hidden = true; 
+    } 
+    
+    if (state.logViewMode === 'chrono') { 
+        refs.btnLogChrono.classList.add('active'); 
+        refs.btnLogTopic.classList.remove('active'); 
+        combinedLog.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)).forEach(item => { 
+            const el=document.createElement('div'); 
+            const d=new Date(item.timestamp); 
+            
+            // --- PERSIAN DATE FORMAT ---
+            const pDate = getPersianDateString(d);
+            const tTime = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            const fd = `${pDate}, ${tTime}`;
+            // ---------------------------
+
+            const buttons = `<div class="log-meta"><span class="log-date">${fd}</span><div class="log-actions"><button class="action-icon-btn edit edit-btn" data-timestamp="${item.timestamp}" data-tooltip="Edit">${icons.edit}</button><button class="action-icon-btn delete delete-btn" data-timestamp="${item.timestamp}" data-tooltip="Delete">${icons.delete}</button></div></div>`; 
+            if(item.type==='session'){ el.className='log-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="log-duration">${item.duration}</div><div class="log-notes">${item.notes}</div>`; } else { el.className='score-item'; el.innerHTML=`<span class="log-course">${item.course}</span>${buttons}<div class="score-value">${item.score}%</div><div class="log-notes">${item.notes}</div>`; } refs.sessionLog.appendChild(el); 
+        }); 
+    } else { 
+        refs.btnLogChrono.classList.remove('active'); 
+        refs.btnLogTopic.classList.add('active'); 
+        const grouped = {}; 
+        combinedLog.filter(item => item.notes && item.notes.trim() !== '').forEach(item => { if (!grouped[item.course]) grouped[item.course] = []; grouped[item.course].push(item); }); Object.keys(grouped).sort().forEach(course => { const courseHeader = document.createElement('h3'); courseHeader.className = 'log-course-header'; courseHeader.textContent = course; refs.sessionLog.appendChild(courseHeader); grouped[course].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).forEach((item, index) => { const el=document.createElement('div'); const cleanNote = item.notes.replace(/\(stopped early\)/g, '').trim(); if (item.type === 'session') { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> ${cleanNote}`; } else { el.className = 'log-item-minimal'; el.innerHTML = `<span class="log-date-minimal">${index + 1}.</span> <strong>${item.score}%</strong> ${cleanNote}`; } refs.sessionLog.appendChild(el); }); }); 
+    } 
+}
 
 function updateTaskDashboard() {
     refs.taskList.innerHTML = ''; 
@@ -34,15 +110,16 @@ function updateTaskDashboard() {
         if (state.showCompletedTasks) {
             itemClass += ' completed'; countdownText = "Done";
         } else {
-            if(daysLeft < 0) { itemClass += ' overdue'; countdownText = `${-daysLeft}d passed; SHAME!`; } 
+            if(daysLeft < 0) { itemClass += ' overdue'; countdownText = `${-daysLeft}d passed`; } 
             else if (daysLeft === 0) { itemClass += ' warning-urgent'; countdownText = 'Today'; } 
             else if (daysLeft <= 3) { itemClass += ' warning-urgent'; countdownText = `${daysLeft}d left`; } 
             else { countdownText = `${daysLeft}d left`; }
         }
         
-        const formattedDate = eventDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        // --- PERSIAN DATE ---
+        const formattedDate = getPersianDateString(eventDate);
+        // --------------------
         
-        // *** FIX: Simplified Urgency Logic ***
         let barFill = 0;
         if (state.showCompletedTasks) {
             barFill = 100;
@@ -80,10 +157,27 @@ function updateTaskDashboard() {
     });
 }
 
-function initializeCalendar() { state.calendar = flatpickr(refs.studyCalendar, { inline: true, locale: { firstDayOfWeek: 6 }, onChange: (selectedDates) => { if (!state.isSavingEvent && selectedDates.length) updateLogDisplay(getLocalISODateString(selectedDates[0])); }, onDayCreate: (dObj, dStr, fp, dayElem) => { const date = getLocalISODateString(dayElem.dateObj); const studyDays = new Set(state.allSessions.map(s => getLocalISODateString(new Date(s.timestamp)))); if (studyDays.has(date)) { dayElem.classList.add("study-day"); } const eventsOnThisDay = state.allEvents.filter(e => e.date === date && !e.isDone); if (eventsOnThisDay.length > 0) { dayElem.classList.add("event-day"); dayElem.dataset.tooltip = eventsOnThisDay.map(e => e.title).join('\n'); } dayElem.addEventListener('contextmenu', (e) => { e.preventDefault(); showEventModal(dayElem.dateObj); }); } }); }
-function updateCalendar() { if (state.calendar) { state.calendar.redraw(); } }
+
+
+function updateCalendar() { 
+    // Only try to redraw if the calendar exists AND has the function
+    if (state.calendar && typeof state.calendar.redraw === 'function') { 
+        state.calendar.redraw(); 
+    } 
+}
 function resetCalendarToToday() { const today = new Date(); if (state.calendar) { state.calendar.setDate(today, true); state.calendar.jumpToDate(today); } updateLogDisplay(getLocalISODateString(today)); }
-function initializeEventModalPicker() { state.eventModalPicker = flatpickr(refs.eventDatePicker, { dateFormat: "Y-m-d" }); }
+
+// Initialize Event Modal Picker (Also Persian)
+function initializeEventModalPicker() { 
+    state.eventModalPicker = flatpickr(refs.eventDatePicker, { 
+        dateFormat: "Y-m-d", 
+        altInput: true,
+        altFormat: "Y/m/d", 
+        locale: 'fa'
+    }); 
+}
+
+
 function populateCourses() { refs.courseSelect.innerHTML = ''; refs.scoreCourseSelect.innerHTML = ''; refs.editCourseSelect.innerHTML = ''; refs.pomodoroCourseSelect.innerHTML = ''; refs.countdownCourseSelect.innerHTML = ''; state.allCourses.forEach(c => { const o1=document.createElement('option');o1.value=c;o1.textContent=c;refs.courseSelect.appendChild(o1); const o2=document.createElement('option');o2.value=c;o2.textContent=c;refs.scoreCourseSelect.appendChild(o2); const o3=document.createElement('option');o3.value=c;o3.textContent=c;refs.editCourseSelect.appendChild(o3); const o4=document.createElement('option');o4.value=c;o4.textContent=c;refs.pomodoroCourseSelect.appendChild(o4); const o5=document.createElement('option');o5.value=c;o5.textContent=c;refs.countdownCourseSelect.appendChild(o5); }); if (state.lastSelectedCourse && state.allCourses.includes(state.lastSelectedCourse)) { refs.courseSelect.value = state.lastSelectedCourse; refs.scoreCourseSelect.value = state.lastSelectedCourse; refs.editCourseSelect.value = state.lastSelectedCourse; refs.pomodoroCourseSelect.value = state.lastSelectedCourse; refs.countdownCourseSelect.value = state.lastSelectedCourse; } }
 function updateCourseEditorList() { refs.courseListEditor.innerHTML = ''; state.allCourses.forEach(course => { const item = document.createElement('div'); item.className = 'course-list-item'; item.style.cssText = "display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; align-items:center;"; item.innerHTML = `<span>${course}</span><button class="action-icon-btn delete course-delete-btn" data-course="${course}">${icons.delete}</button>`; refs.courseListEditor.appendChild(item); }); }
 function setLogViewMode(mode) { state.logViewMode = mode; updateLogDisplay(); }

@@ -1,69 +1,57 @@
 {
-  "name": "pre-prep-hub",
-  "version": "1.0.1",
+  "name": "medchronos",
+  "version": "1.0.2",
   "description": "A study tracker for medical exams.",
   "main": "main.js",
-  "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crocodilusniloticus/residency-prep-hub.git"
   },
-  "keywords": [],
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "publish": "electron-builder --publish always"
+  },
   "author": "ASh",
   "license": "ISC",
-  "config": {
-    "forge": {
-      "packagerConfig": {
-        "icon": "./icon"
-      },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "setupIcon": "./icon.ico"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin",
-            "linux"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {
-            "options": {
-              "icon": "./icon.png"
-            }
-          }
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
+  "build": {
+    "appId": "com.medchronos.app",
+    "productName": "MedChronos",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon.ico",
+      "publish": [
+        "github"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "crocodilusniloticus",
+      "repo": "residency-prep-hub"
     }
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^7.10.2",
-    "@electron-forge/maker-deb": "^7.10.2",
-    "@electron-forge/maker-rpm": "^7.10.2",
-    "@electron-forge/maker-squirrel": "^7.10.2",
-    "@electron-forge/maker-zip": "^7.10.2",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
-    "@electron-forge/plugin-fuses": "^7.10.2",
-    "@electron/fuses": "^1.8.0",
-    "electron": "^28.0.0",
-    "electron-reloader": "^1.2.3"
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "echarts": "^6.0.0",
-    "electron-squirrel-startup": "^1.0.1",
+    "electron-log": "^5.0.0",
+    "electron-updater": "^6.1.0",
     "flatpickr": "^4.6.13",
+    "flatpickr-jalali-support": "^1.0.3",
+    "jdate": "^0.0.2",
     "luxon": "^3.7.2",
     "matplotlib": "^1.0.0",
     "tippy.js": "^6.3.7"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-reloader": "^1.2.3"
   }
 }

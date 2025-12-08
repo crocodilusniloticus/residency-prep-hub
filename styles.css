@@ -98,7 +98,7 @@ body {
 
 .app-container {
     margin: 0 auto;
-    min-width: 1380px; 
+    min-width: 1680px; 
     min-height: 1100px; 
     height: 100vh; 
     display: flex; flex-direction: column;
@@ -285,21 +285,52 @@ span.flatpickr-weekday {
 }
 
 /* 4. Fix the Numbers (Make them DARK Ink) */
+/* 1. Reset the cell layout */
 .flatpickr-day {
-    color: var(--text-main) !important; /* <--- THIS FIXES THE INVISIBLE NUMBERS */
-    background: transparent !important;
-    border: 1px solid transparent !important; 
-    border-radius: 50% !important; 
-    box-shadow: none !important;
-    font-weight: 500;
+    position: relative; 
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Align numbers to top */
+    align-items: flex-start;     /* Align numbers to left */
+    padding: 2px;
+    height: 40px; /* Slightly taller */
+    line-height: 1;
+    border: 1px solid transparent; /* Prevents jumping */
 }
+
+/* 2. The Persian Date (Red Number) - Bottom Right */
+.jalaali-date {
+    position: absolute;
+    bottom: 3px;
+    right: 5px;
+    font-size: 0.75rem;
+    color: var(--danger); /* Red color for Persian date */
+    font-weight: 700;
+    opacity: 0.8;
+}
+
+/* 3. DEADLINES: Gold Dot (Top Right) */
+/* This replaces the ugly yellow line */
 .flatpickr-day.event-day {
-    /* Make the line thicker (3px) so it's clearly visible */
-    border-bottom: 3px solid var(--warning) !important;
-    
-    /* Ensure the line isn't hidden by the transparent background */
-    border-radius: 4px !important; /* Slight rounding looks better with a line than 50% circle */
+    border-bottom: none !important; /* Remove the line */
 }
+.flatpickr-day.event-day::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 30px;
+    width: 6px;
+    height: 6px;
+    background-color: var(--warning); /* Gold */
+    border-radius: 50%;
+}
+
+/* 4. STUDY DAYS: Green Dot (Top Center) or Background */
+.flatpickr-day.study-day {
+    background-color: rgba(102, 187, 106, 0.1); /* Very faint green background */
+    font-weight: bold;
+}
+
 
 
 /* Hover Effect */
