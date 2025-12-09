@@ -37,7 +37,7 @@ MedChronos is a specialized productivity tool designed to help medical professio
 
 ### For Windows Users
 1.  Go to the **[Releases Page](https://github.com/crocodilusniloticus/residency-prep-hub/releases)**.
-2.  Download the latest installer: `MedChronos Setup 1.0.4.exe`.
+2.  Download the latest installer.
 3.  Run the installer.
 
 ## ⚠️ Windows Security Note:
