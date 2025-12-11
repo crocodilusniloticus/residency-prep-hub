@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <!-- Security Policy allows local scripts and styles -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; media-src 'self' file:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://type.fit https://dummyjson.com https://raw.githubusercontent.com; img-src 'self' data:; media-src 'self' file:;">
     <title>MedChronos</title>
     
     <!-- CSS Dependencies -->
@@ -137,6 +137,7 @@
                     <button id="btn-timer-countdown" class="mode-tab">Countdown</button>
                 </div>
                 <div class="timer-body">
+                    <div id="quote-container" class="quote-container"></div>
                     <!-- Stopwatch -->
                     <div id="stopwatch-panel" class="timer-panel">
                         <div class="input-group"><select id="courseSelect" class="modern-select large-text"></select></div>

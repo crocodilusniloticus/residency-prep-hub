@@ -36,7 +36,13 @@ function init(appState, uiRefs, timerFuncs, modalFuncs, chartFuncs, viewFuncs, d
     
     // LOG & GENERAL
     refs.logScoreButton.addEventListener('click', () => { if (dataManager.logScore()) { updateAllDisplays(); } });
-    refs.showAllButton.addEventListener('click', () => { views.updateLogDisplay(); if (state.calendar) { state.calendar.clear(); } });
+    
+    // *** UPDATED: Show All clears state (pass null) ***
+    refs.showAllButton.addEventListener('click', () => { 
+        views.updateLogDisplay(null); 
+        if (state.calendar) { state.calendar.clear(); } 
+    });
+    
     if(refs.btnCalendarToday) { refs.btnCalendarToday.addEventListener('click', () => { views.resetCalendarToToday(); }); }
 
     // MODALS & ACTIONS

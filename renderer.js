@@ -49,7 +49,9 @@ function initializeApp() {
         const modals = require('./js/modals');
         const views = require('./js/views');
         const listeners = require('./js/listeners');
-        const tools = require('./js/tools'); 
+        const tools = require('./js/tools');
+        const quotes = require('./js/quotes');
+        
 
         const updateAllDisplays = () => {
             views.populateCourses(); 
@@ -74,6 +76,7 @@ function initializeApp() {
         
         listeners.init(state, refs, timers, modals, charts, views, dataManager, updateAllDisplays);       
         tools.initToolsListeners(); 
+        quotes.init('quote-container');
 
         dataManager.loadData();
         dataManager.checkForRecoveredSession();

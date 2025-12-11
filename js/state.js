@@ -41,6 +41,7 @@ let pieChartMode = 'trend';
 let trendChartSpan = 7; 
 let logViewMode = 'chrono'; 
 let showCompletedTasks = false; 
+let logFilterDate = null; 
 
 let streakCount = 0;
 let streakTarget = 7; 
@@ -63,5 +64,5 @@ module.exports = {
     pieChartMode, trendChartSpan, logViewMode, showCompletedTasks,
     streakCount, streakTarget, streakMinMinutes, isFocusMode,
     deadlineUrgencyDays, 
-    calendarCurrentMonth, calendarCurrentYear
+    calendarCurrentMonth, calendarCurrentYear, logFilterDate
 };

@@ -1,5 +1,7 @@
 const { exec } = require('child_process'); 
-const { getLocalISODateString } = require('./utils');
+// Added injectJalaaliDate to imports
+const { getLocalISODateString, injectJalaaliDate } = require('./utils');
+
 
 let state, refs, dataManager, updateAllDisplays;
 // Added getTrendChartOptions to this list
@@ -74,7 +76,45 @@ function saveEvent() {
 
 function showConfirmModal(identifier, isTask = false, itemType = 'log') { refs.itemToProcess.value = identifier; refs.itemToProcess.dataset.itemType = itemType; refs.confirmDeleteButton.style.backgroundColor = 'var(--red)'; refs.confirmDeleteButton.textContent = 'Delete'; if (itemType === 'course') { refs.modalConfirmTitle.textContent = 'Delete Course?'; refs.modalConfirmText.textContent = `Are you sure you want to delete the course "${identifier}"? This will not affect existing log entries.`; } else if (itemType === 'task_permanent') { refs.modalConfirmTitle.textContent = 'Delete Task Permanently?'; refs.modalConfirmText.textContent = 'This will remove the task from history. Use "Done" if you just finished it.'; } else { refs.modalConfirmTitle.textContent = 'Are you sure?'; refs.modalConfirmText.textContent = 'Are you sure you want to delete this item? This action cannot be undone.'; } refs.confirmModal.style.display = 'flex'; }
 function hideConfirmModal() { refs.itemToProcess.value = ''; refs.confirmModal.style.display = 'none'; }
-function showEditModal(timestamp) { let item = state.allSessions.find(s => s.timestamp === timestamp); let itemType = 'session'; if (!item) { item = state.allScores.find(s => s.timestamp === timestamp); itemType = 'score'; } if (!item) return; refs.editTimestamp.value = timestamp; refs.editCourseSelect.value = item.course; refs.editNotes.value = item.notes || ''; refs.editError.textContent = ''; if (!editDatePickerInstance) { editDatePickerInstance = window.flatpickr(refs.editDatePicker, { dateFormat: "Y-m-d", defaultDate: new Date(timestamp) }); } else { editDatePickerInstance.setDate(new Date(timestamp)); } if (itemType === 'session') { refs.editSessionGroup.style.display = 'block'; refs.editDuration.value = item.duration; refs.editScoreGroup.style.display = 'none'; } else { refs.editSessionGroup.style.display = 'none'; refs.editScoreGroup.style.display = 'block'; refs.editScore.value = item.score; } refs.editModal.style.display = 'flex'; }
+function showEditModal(timestamp) { 
+    let item = state.allSessions.find(s => s.timestamp === timestamp); 
+    let itemType = 'session'; 
+    if (!item) { 
+        item = state.allScores.find(s => s.timestamp === timestamp); 
+        itemType = 'score'; 
+    } 
+    if (!item) return; 
+    
+    refs.editTimestamp.value = timestamp; 
+    refs.editCourseSelect.value = item.course; 
+    refs.editNotes.value = item.notes || ''; 
+    refs.editError.textContent = ''; 
+    
+    if (!editDatePickerInstance) { 
+        editDatePickerInstance = window.flatpickr(refs.editDatePicker, { 
+            dateFormat: "Y-m-d", 
+            defaultDate: new Date(timestamp),
+            locale: 'fa', // Ensure Persian Month names
+            // Fix: Inject Jalaali numbers
+            onDayCreate: (dObj, dStr, fp, dayElem) => {
+                injectJalaaliDate(dayElem);
+            }
+        }); 
+    } else { 
+        editDatePickerInstance.setDate(new Date(timestamp)); 
+    } 
+    
+    if (itemType === 'session') { 
+        refs.editSessionGroup.style.display = 'block'; 
+        refs.editDuration.value = item.duration; 
+        refs.editScoreGroup.style.display = 'none'; 
+    } else { 
+        refs.editSessionGroup.style.display = 'none'; 
+        refs.editScoreGroup.style.display = 'block'; 
+        refs.editScore.value = item.score; 
+    } 
+    refs.editModal.style.display = 'flex'; 
+}
 function hideEditModal() { refs.editModal.style.display = 'none'; }
 function saveEdit() { const ts = refs.editTimestamp.value; const newCourse = refs.editCourseSelect.value; const newNotes = refs.editNotes.value.trim(); const newDateStr = refs.editDatePicker.value; let sessionItem = state.allSessions.find(s => s.timestamp === ts); let scoreItem = state.allScores.find(s => s.timestamp === ts); let activeItem = sessionItem || scoreItem; if (activeItem) { if (newDateStr) { const originalDateObj = new Date(ts); const newDateObj = new Date(newDateStr); newDateObj.setHours(originalDateObj.getHours(), originalDateObj.getMinutes(), originalDateObj.getSeconds()); activeItem.timestamp = newDateObj.toISOString(); } activeItem.course = newCourse; activeItem.notes = newNotes; if (sessionItem) { const newDuration = refs.editDuration.value; if (!/^\d{2}:\d{2}:\d{2}$/.test(newDuration)) { refs.editError.textContent = "Duration must be in HH:MM:SS format."; return; } const parts = newDuration.split(':').map(Number); activeItem.seconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2]; activeItem.duration = newDuration; } else if (scoreItem) { const newScore = parseInt(refs.editScore.value, 10); if(isNaN(newScore) || newScore < 0 || newScore > 100){ refs.editError.textContent = 'Score must be a number from 0-100.'; return; } activeItem.score = newScore; } dataManager.saveData(); updateAllDisplays(); hideEditModal(); } }
 

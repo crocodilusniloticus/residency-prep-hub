@@ -358,10 +358,26 @@ body {
     display: flex; flex-direction: column; gap: 0px; 
     overflow: hidden; 
 }
-/* 1. The Container: Completely Transparent */
-/* --- CALENDAR CARD CONTAINER --- */
+
 /* =========================================
-   1. CONTAINER & CARD STYLES
+   1. GLOBAL FLATPICKR TWEAKS (Popups/Modals)
+   ========================================= */
+.flatpickr-day .jalaali-date {
+    position: absolute !important;
+    bottom: 2px !important;
+    left: 4px !important; 
+    right: auto !important;
+    top: auto !important;
+    font-size: 0.65rem !important;
+    color: #90a4ae !important;
+    line-height: 1 !important;
+    pointer-events: none;
+    font-weight: 600;
+    z-index: 10;
+}
+
+/* =========================================
+   2. MAIN DASHBOARD CARD CONTAINER
    ========================================= */
 .calendar-card { 
     background-color: var(--card-cal-bg) !important;
@@ -370,184 +386,218 @@ body {
     box-shadow: var(--shadow-md) !important;
     flex: 0 0 auto; 
     width: 100%;
-    padding: 10px 10px !important; 
+    padding: 10px 10px !important; /* Original padding */
     margin-bottom: 10px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center; 
+    position: relative;
 }
 
 .calendar-card .card-header {
-    background: var(--c-transparent) !important; 
-    padding: none !important; 
+    background: transparent !important; 
+    padding: 0 !important; 
     border: none !important;
-    margin-bottom: 0px !important;
-    margin: 0 !important;
+    margin: 0 !important; /* Original margin */
     width: 100%; 
 }
 
 .calendar-card .card-header h3, 
-.text-link-btn {
+.calendar-card .text-link-btn {
     color: var(--card-cal-accent) !important;
     opacity: 0.8;
 }
 
 /* =========================================
-   2. FLATPICKR LAYOUT RESET (Transparency)
+   3. INTERNAL CALENDAR RESET (Transparent)
    ========================================= */
-.flatpickr-calendar, 
-.flatpickr-calendar.inline, 
-.flatpickr-calendar.open {
-    background: var(--c-transparent) !important;
+.calendar-card .flatpickr-calendar,
+.calendar-card .flatpickr-calendar.inline,
+.calendar-card .flatpickr-months,
+.calendar-card .flatpickr-weekdays,
+.calendar-card .flatpickr-innerContainer,
+.calendar-card .flatpickr-rContainer,
+.calendar-card .flatpickr-days,
+.calendar-card .dayContainer {
+    background: transparent !important;
     box-shadow: none !important;
     border: none !important;
     width: 100% !important;
-    margin: 0 !important;
+    max-width: 100% !important;
 }
 
-.flatpickr-innerContainer {
-    width: 100% !important;
-    display: flex;
-    justify-content: center;
-}
-
-.flatpickr-rContainer {
-    width: 100% !important;
-    display: block; 
-}
-
-.flatpickr-days {
-    width: 100% !important;
-    border: none !important;
-    display: flex;
-    justify-content: center; 
-}
-
-/* =========================================
-   3. HIGH GAP GRID SYSTEM
-   ========================================= */
-
-/* The Wrapper for the Days */
-.dayContainer {
+/* Fix grid width to auto to maintain original tightness */
+.calendar-card .dayContainer {
     width: auto !important;     
     min-width: 0 !important;
     max-width: 100% !important;
     display: flex !important;
     flex-wrap: wrap;
     justify-content: center;    
-    transform: none !important;
 }
 
-/* --- WEEKDAY LABELS (Mo, Tu, We) --- */
-span.flatpickr-weekday {
+/* =========================================
+   4. NAVIGATION (Month / Year)
+   ========================================= */
+.calendar-card .flatpickr-current-month {
+    background: transparent !important;
+    padding: 0 !important; /* Original padding */
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    margin-bottom: 5px !important;
+}
+
+.calendar-card .flatpickr-current-month input.cur-year,
+.calendar-card .flatpickr-monthDropdown-months {
+    font-weight: 800;
+    color: var(--card-cal-accent) !important;
+    fill: var(--card-cal-accent) !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Weekday Labels */
+.calendar-card span.flatpickr-weekday {
     color: var(--text-muted) !important;
-    background: var(--c-transparent) !important;
+    background: transparent !important;
     font-size: 0.8rem; 
     font-weight: 700;
-    
-    text-align: center !important; 
-    display: block; 
-    padding: 0 !important;
-    
     flex: 1 0 auto !important; 
-    width: 40px !important; 
+    width: 40px !important; /* Original width */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* --- DAY CELLS (The High Gap Logic) --- */
-.flatpickr-day {
-    color: var(--text-main) !important;
-    background: var(--c-transparent) !important;
-    border: none !important;
+/* =========================================
+   5. DAY CELLS (Exact Original Dimensions)
+   ========================================= */
+.calendar-card .flatpickr-day {
+    /* VISUALS */
+    background: transparent !important; 
+    border: 1px solid transparent !important;
     border-radius: 8px;
+    color: var(--text-main) !important;
+    box-shadow: none !important;
     
+    /* LAYOUT */
+    direction: ltr !important; 
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important; /* Vertical: TOP */
+    align-items: flex-end !important;       /* Horizontal: RIGHT */
+    text-align: right !important;
+    
+    /* SPACING - EXACT ORIGINAL */
+    padding: 4px 6px 0 0 !important;
     height: 38px !important; 
     width: 38px !important;
     max-width: 38px !important;
-    
-    display: block !important; 
-    position: relative !important; 
-    
-    text-align: center !important;
-    line-height: 36px !important; 
-    
     margin: 3px !important; 
+    
+    line-height: 1 !important;
     font-weight: 600;
     font-size: 13px;
-    box-shadow: none !important;
+    position: relative !important;
 }
 
-/* --- SEPARATE THE SECONDARY NUMBER (Jalali) --- */
-.flatpickr-day span {
-    position: absolute !important;
-    top: 2px !important;
-    right: 2px !important; 
-    font-size: 9px !important; 
-    line-height: 1 !important;
-    color: var(--card-cal-accent) !important; 
-    font-weight: normal !important;
-}
-
-/* Blurry Next/Prev Days */
-.flatpickr-day.prevMonthDay, 
-.flatpickr-day.nextMonthDay {
-    opacity: 0.3 !important;
-    filter: blur(0.1px) !important;
-    pointer-events: none !important;
+.calendar-card .flatpickr-day:hover { 
+    background: var(--cal-hover-bg) !important; 
+    border-color: transparent !important; 
+    cursor: pointer;
 }
 
 /* =========================================
-   4. INTERACTIVE STATES
+   6. JALAALI DATE (Exact Original Position)
    ========================================= */
-.flatpickr-day:hover {
-    background: var(--cal-hover-bg) !important;
-    border: 1px solid var(--card-cal-accent) !important;
+.calendar-card .flatpickr-day .jalaali-date {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 3px !important;
+    
+    /* LEFT ALIGNMENT */
+    left: 5px !important;   
+    right: auto !important; /* Must be auto to release it from the right side */
+    
+    font-size: 0.75rem !important;
+    color: var(--danger) !important; 
+    opacity: 0.8;
+    font-weight: 700;
 }
-.flatpickr-day.today {
-    border: 1px solid var(--card-cal-accent) !important;
-    color: var(--card-cal-accent) !important;
-    background: var(--cal-today-bg) !important;
+
+/* =========================================
+   7. STATES & MODIFIERS (With Fixes)
+   ========================================= */
+
+/* A. Study Days (Green) */
+.calendar-card .flatpickr-day.study-day { 
+    background-color: var(--card-study-bg) !important;
+    font-weight: bold; 
+    color: var(--card-study-accent) !important; 
+    border-color: var(--card-study-border) !important;
 }
-.flatpickr-day.selected {
+
+/* B. Selected / Range / Study-Selected Override */
+.calendar-card .flatpickr-day.selected, 
+.calendar-card .flatpickr-day.startRange, 
+.calendar-card .flatpickr-day.endRange,
+.calendar-card .flatpickr-day.study-day.selected { /* Added to fix Blue disappearing on green days */
+    background: var(--card-cal-accent) !important; 
+    color: #ffffff !important; 
+    border-color: var(--card-cal-accent) !important; 
+    font-weight: 700;
+}
+
+/* C. Today */
+.calendar-card .flatpickr-day.today { 
+    border: 2px solid var(--card-cal-accent) !important; 
+    color: var(--card-cal-accent) !important; 
+    background: transparent !important;
+}
+.calendar-card .flatpickr-day.today:hover { 
+    background: var(--card-cal-accent) !important; 
+    color: #ffffff !important; 
+}
+.calendar-card .flatpickr-day.today.selected {
+    color: #ffffff !important;
     background: var(--card-cal-accent) !important;
     border-color: var(--card-cal-accent) !important;
-    color: var(--cal-selected-text) !important;
 }
 
-/* =========================================
-   5. MONTH & YEAR HEADER ALIGNMENT
-   ========================================= */
-.flatpickr-current-month {
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    padding-top: 0px !important;
-    padding-bottom: 0px !important;
-    margin-top: 0px !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    position: absolute !important; 
-    pointer-events: none; 
+/* D. FIX JALAALI VISIBILITY (White on Blue) */
+.calendar-card .flatpickr-day.selected .jalaali-date,
+.calendar-card .flatpickr-day.startRange .jalaali-date,
+.calendar-card .flatpickr-day.endRange .jalaali-date,
+.calendar-card .flatpickr-day.study-day.selected .jalaali-date {
+    color: #ffffff !important;
+    opacity: 0.9 !important;
 }
 
-.flatpickr-current-month .flatpickr-monthDropdown-months,
-.flatpickr-current-month input.cur-year {
-    pointer-events: auto !important;
-    margin: 0 4px !important;
+/* E. Event Dots */
+.calendar-card .flatpickr-day.event-day::after {
+    content: ''; 
+    position: absolute; 
+    top: 6px; 
+    left: 6px; /* Kept left to avoid overlap with LTR number */
+    width: 6px; 
+    height: 6px;
+    background-color: var(--warning); 
+    border-radius: 50%;
+}
+.calendar-card .flatpickr-day.event-day { 
+    border-bottom: none !important; 
 }
 
-.flatpickr-current-month .flatpickr-prev-month,
-.flatpickr-current-month .flatpickr-next-month {
-    position: absolute !important;
-    top: 0px !important;
-    pointer-events: auto !important;
-    z-index: 10;
+/* F. Ghost Days */
+.calendar-card .flatpickr-day.prevMonthDay, 
+.calendar-card .flatpickr-day.nextMonthDay {
+    opacity: 0.3 !important;
+    filter: blur(0.5px) !important;
+    pointer-events: none !important;
+    color: var(--text-muted) !important;
 }
-
-.flatpickr-current-month .flatpickr-prev-month { left: 10px !important; right: auto !important; }
-.flatpickr-current-month .flatpickr-next-month { right: 10px !important; left: auto !important; }
-
 
 .score-card { 
     flex: 0 0 250px; 
@@ -656,44 +706,6 @@ span.flatpickr-weekday {
 .task-done-btn { background: var(--c-white); color: var(--card-tasks-accent); border: 1px solid var(--card-tasks-accent); padding: 4px 8px; border-radius: 6px; font-weight: bold; cursor: pointer; line-height: 1; font-size: 0.8rem; }
 .task-done-btn:hover { background: var(--card-tasks-accent); color: var(--c-white); }
 
-/* --- Calendar Components --- */
-#study-calendar .flatpickr-calendar { 
-    background: var(--c-transparent) !important; 
-    box-shadow: none !important;        
-    border: none !important; 
-    width: 100% !important; 
-    margin: 0 auto !important;
-    position: relative !important;
-    top: 0 !important;
-}
-.flatpickr-current-month .flatpickr-monthDropdown-months,
-.flatpickr-current-month input.cur-year {
-    color: var(--card-cal-accent) !important; 
-    font-weight: 800;
-    fill: var(--card-cal-accent) !important; 
-}
-span.flatpickr-weekday {
-    color: var(--text-muted) !important; 
-    font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
-}
-.flatpickr-day {
-    position: relative; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; 
-    padding: 2px; height: 40px; line-height: 1; border: 1px solid var(--c-transparent); 
-}
-.jalaali-date { position: absolute; bottom: 3px; right: 5px; font-size: 0.75rem; color: var(--danger); font-weight: 700; opacity: 0.8; }
-.flatpickr-day.event-day { border-bottom: none !important; }
-.flatpickr-day.event-day::after {
-    content: ''; position: absolute; top: 5px; right: 30px; width: 6px; height: 6px;
-    background-color: var(--warning); border-radius: 50%;
-}
-.flatpickr-day.study-day { background-color: var(--card-study-bg); font-weight: bold; color: var(--card-study-accent); }
-.flatpickr-day:hover { background: var(--cal-hover-bg) !important; border-color: var(--c-transparent) !important; }
-.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
-    background: var(--card-cal-accent) !important; color: var(--c-white) !important; 
-    border-color: var(--card-cal-accent) !important; font-weight: 700;
-}
-.flatpickr-day.today { border: 2px solid var(--card-cal-accent) !important; color: var(--card-cal-accent) !important; }
-.flatpickr-day.today:hover { background: var(--card-cal-accent) !important; color: var(--c-white) !important; }
 .score-grid { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
 #scoreInput { width: 80px; text-align: center; font-weight: 700; color: var(--card-cal-accent); }
 
@@ -705,9 +717,67 @@ span.flatpickr-weekday {
 .mode-tab.running { color: var(--success); border-bottom: 2px solid var(--success); border-radius: 4px; }
 .mode-tab.running::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; background-color: var(--success); border-radius: 50%; box-shadow: 0 0 4px var(--success); }
 
-.timer-body { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; }
-.timer-panel { display: flex; flex-direction: column; height: 100%; gap: 15px; justify-content: center; align-items: center; }
-.timer-panel .input-group, .timer-panel .modern-select, .timer-panel .modern-textarea { width: 100%; max-width: 400px; text-align: center; }
+.timer-mode-switcher { 
+    display: flex; 
+    background: var(--timer-switcher-bg); 
+    padding: 4px; 
+    border-radius: calc(var(--radius) + 4px); 
+    
+    /* Control the space below the tabs here */
+    margin: 0 auto 10px auto; /* Reduced bottom margin from 15px to 10px */
+    
+    width: fit-content; 
+    border: 1px solid var(--timer-switcher-border); 
+}
+
+/* 2. UPDATE TIMER BODY: Align to TOP instead of Center */
+.timer-body { 
+    flex-grow: 1; 
+    display: flex; 
+    flex-direction: column; 
+    
+    /* CRITICAL FIX: Changed from 'center' to 'flex-start' */
+    justify-content: flex-start; 
+    
+    align-items: center; 
+    width: 100%;
+    
+    /* Optional: Add a tiny bit of padding so it's not glued to the tabs */
+    padding-top: 5px; 
+}
+
+/* 2. UPDATE TIMER PANEL: Remove fixed height so it stacks naturally below quote */
+.timer-panel { 
+    display: flex; 
+    flex-direction: column; 
+    width: 100%; 
+    gap: 10px; 
+    
+    /* CRITICAL CHANGE: Grow to fill the card, align to top */
+    flex-grow: 1;            
+    justify-content: flex-start; 
+    align-items: center; 
+    
+    /* Add a little breathing room at the bottom */
+    padding-bottom: 5px; 
+}
+.timer-panel .modern-textarea { 
+    width: 100%; 
+    max-width: 400px; 
+    text-align: center; 
+    
+    /* CRITICAL CHANGE: Expand to fill the panel */
+    flex-grow: 1;            
+    height: auto;            
+    min-height: 40px;        /* Prevents collapsing too small */
+    resize: none;            /* Disable manual resize (auto-fill replaces it) */
+}
+
+.timer-panel .input-group, .timer-panel .modern-select, .timer-panel .modern-textarea { 
+    width: 100%; 
+    max-width: 400px; 
+    text-align: center; 
+}
 .timer-panel .modern-select { text-align-last: center; }
 .timer-display-container { text-align: center; margin: 5px 0; }
 .main-timer-text { font-size: 4rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--card-timer-accent); line-height: 1; letter-spacing: -2px; }
@@ -1026,3 +1096,38 @@ body.breathing-mode .card-header { display: none; }
 .pie-val-text { font-size: 2.8rem; font-weight: 800; color: var(--text-main); line-height: 1; }
 .pie-label-text { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); letter-spacing: 2px; margin-top: 4px; }
 .pie-center-text.hidden { display: none; }
+
+.quote-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    
+    /* Spacing: 5px top + 10px bottom from switcher = 15px total gap */
+    margin-top: 5px;       
+    margin-bottom: 15px;   
+    
+    padding: 0 15px;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    flex-shrink: 0;
+    min-height: 45px;      
+}
+
+body.focus-mode .timer-body {
+    justify-content: center; /* Override 'flex-start' back to 'center' */
+}
+
+/* 2. Stop the panel from growing to fill the screen */
+body.focus-mode .timer-panel {
+    flex-grow: 0; 
+}
+
+/* 3. Limit the notes box to a fixed, small size */
+body.focus-mode .timer-panel .modern-textarea {
+    flex-grow: 0;
+    height: 130px;        
+    min-height: 40px;    
+    margin-top: 10px;    
+}
